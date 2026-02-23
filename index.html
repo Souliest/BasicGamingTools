@@ -522,7 +522,7 @@ function toggleTheme() {
   const btn = document.querySelector('.theme-toggle');
   body.classList.toggle('light');
   btn.textContent = body.classList.contains('light') ? '🌕' : '🌙';
-  updateAll(); // redraw charts with new colors
+  redrawCharts();
 }
 
 function resetAll() {
@@ -563,6 +563,11 @@ function updateAll() {
   updateChips();
   updateAvgStats();
   updateEntryLog();
+  updateTimeStats();
+  redrawCharts();
+}
+
+function redrawCharts() {
   drawGainChart();
   drawTimeChart();
 }
@@ -602,6 +607,32 @@ function updateAvgStats() {
   document.getElementById('avgTotal').textContent   = fmt(totalAvgNow);
   document.getElementById('avgSmooth5').textContent  = fmt(s5);
   document.getElementById('avgSmooth10').textContent = fmt(s10);
+}
+
+function updateTimeStats() {
+  if (gains.length === 0) {
+    ['tMin','t15','tHour'].forEach(id => document.getElementById(id).textContent = '—');
+    return;
+  }
+  const now     = Date.now();
+  const elapsed = (now - startTime) / 60000;
+  const total   = gains.reduce((s, g) => s + g.xp, 0);
+
+  function isReal(windowMin) { return elapsed >= windowMin; }
+  function rateForWindow(windowMin) {
+    if (isReal(windowMin)) {
+      const cutoff = now - windowMin * 60000;
+      const sum = gains.filter(g => g.ts >= cutoff).reduce((s, g) => s + g.xp, 0);
+      return sum / windowMin;
+    }
+    return elapsed > 0 ? total / elapsed : 0;
+  }
+  function fmtRate(windowMin, rate) {
+    return (isReal(windowMin) ? '' : '~') + fmt(rate * windowMin);
+  }
+  document.getElementById('tMin').textContent  = fmtRate(1,  rateForWindow(1));
+  document.getElementById('t15').textContent   = fmtRate(15, rateForWindow(15));
+  document.getElementById('tHour').textContent = fmtRate(60, rateForWindow(60));
 }
 
 function fmtTime(ts) {
@@ -820,7 +851,6 @@ function drawTimeChart() {
     ctx.font = '11px Share Tech Mono, monospace';
     ctx.textAlign = 'center';
     ctx.fillText('No data yet.', w / 2, h / 2);
-    ['tMin','t15','tHour'].forEach(id => document.getElementById(id).textContent = '—');
     return;
   }
 
@@ -828,25 +858,7 @@ function drawTimeChart() {
   const elapsed = (now - startTime) / 60000;
   const total   = gains.reduce((s, g) => s + g.xp, 0);
 
-  // Stat boxes: true if enough real time has passed, else extrapolate
   function isReal(windowMin) { return elapsed >= windowMin; }
-  function rateForWindow(windowMin) {
-    if (isReal(windowMin)) {
-      const cutoff = now - windowMin * 60000;
-      const sum = gains.filter(g => g.ts >= cutoff).reduce((s, g) => s + g.xp, 0);
-      return sum / windowMin;
-    }
-    return elapsed > 0 ? total / elapsed : 0;
-  }
-  function fmtRate(windowMin, rate) {
-    return (isReal(windowMin) ? '' : '~') + fmt(rate * windowMin);
-  }
-  const rMin  = rateForWindow(1);
-  const r15   = rateForWindow(15);
-  const rHour = rateForWindow(60);
-  document.getElementById('tMin').textContent  = fmtRate(1,  rMin);
-  document.getElementById('t15').textContent   = fmtRate(15, r15);
-  document.getElementById('tHour').textContent = fmtRate(60, rHour);
 
   // Build cumulative XP series — origin always at session start (0,0)
   let cumulative = 0;
@@ -942,8 +954,8 @@ function drawTimeChart() {
 // Initial draw
 updateAll();
 
-// Redraw on resize
-window.addEventListener('resize', updateAll);
+// Resize: only redraw charts, never recalculate data or time estimates
+window.addEventListener('resize', redrawCharts);
 </script>
 </body>
 </html>

@@ -78,12 +78,14 @@
   /* Input row */
   .input-row {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: stretch;
   }
 
   input[type="tel"] {
     flex: 1;
+    min-width: 120px;
     background: var(--input-bg);
     border: 1px solid var(--border);
     border-radius: 7px;
@@ -99,6 +101,21 @@
   input[type="tel"]:focus {
     border-color: var(--accent);
     box-shadow: var(--glow);
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  @media (min-width: 400px) {
+    .btn-row {
+      width: auto;
+    }
+    .input-row {
+      flex-wrap: nowrap;
+    }
   }
 
   .btn {
@@ -365,8 +382,10 @@
   <div class="panel-title">Log XP Gain</div>
   <div class="input-row">
     <input type="tel" id="xpInput" placeholder="0" inputmode="numeric" pattern="[0-9]*">
-    <button class="btn btn-enter" onclick="addXP()">Enter</button>
-    <button class="btn btn-reset" onclick="resetAll()">Reset</button>
+    <div class="btn-row">
+      <button class="btn btn-enter" onclick="addXP()" style="flex:1">Enter</button>
+      <button class="btn btn-reset" onclick="resetAll()" style="flex:1">Reset</button>
+    </div>
   </div>
 
   <!-- Quick stats -->
@@ -390,7 +409,7 @@
 <div class="panel">
   <div class="panel-title">XP Per Gain + Averages</div>
   <div class="chart-wrap">
-    <canvas id="gainChart" height="180"></canvas>
+    <canvas id="gainChart"></canvas>
   </div>
   <div class="legend">
     <div class="legend-item"><div class="legend-dot" style="background:#00e5ff"></div>Each gain</div>
@@ -421,7 +440,7 @@
 <div class="panel">
   <div class="panel-title">XP Accumulator &nbsp;<span style="font-size:0.5rem;color:var(--muted)">~ = estimated rate</span></div>
   <div class="chart-wrap">
-    <canvas id="timeChart" height="180"></canvas>
+    <canvas id="timeChart"></canvas>
   </div>
   <div class="stats-grid" style="margin-top:10px">
     <div class="stat-box">
@@ -629,7 +648,7 @@ function getCanvas(id) {
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.parentElement.getBoundingClientRect();
   const w = rect.width;
-  const h = canvas.height;
+  const h = Math.round(w * 0.5); // always wider than tall
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   canvas.style.width = w + 'px';

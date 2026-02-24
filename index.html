@@ -412,7 +412,6 @@
     <canvas id="gainChart"></canvas>
   </div>
   <div class="legend">
-    <div class="legend-item"><div class="legend-dot" style="background:#00e5ff"></div>Each gain</div>
     <div class="legend-item"><div class="legend-dot" style="background:#ff6b35"></div>Total avg</div>
     <div class="legend-item"><div class="legend-dot" style="background:#7fff6b"></div>Smooth 5</div>
     <div class="legend-item"><div class="legend-dot" style="background:#ffcc00"></div>Smooth 10</div>
@@ -436,13 +435,10 @@
   </div>
 </div>
 
-<!-- Time Chart -->
+<!-- Estimates -->
 <div class="panel">
-  <div class="panel-title">XP Accumulator &nbsp;<span style="font-size:0.5rem;color:var(--muted)">~ = estimated rate</span></div>
-  <div class="chart-wrap">
-    <canvas id="timeChart"></canvas>
-  </div>
-  <div class="stats-grid" style="margin-top:10px">
+  <div class="panel-title">Estimates &nbsp;<span style="font-size:0.5rem;color:var(--muted)">~ = extrapolated</span></div>
+  <div class="stats-grid">
     <div class="stat-box">
       <div class="stat-label">/ Min</div>
       <div class="stat-value" id="tMin">—</div>
@@ -458,9 +454,21 @@
   </div>
 </div>
 
+<!-- Accumulator Chart -->
+<div class="panel">
+  <div class="panel-title">XP Accumulator</div>
+  <div class="chart-wrap">
+    <canvas id="timeChart"></canvas>
+  </div>
+</div>
+
 <!-- Entry Log -->
 <div class="panel">
-  <div class="panel-title">Entry Log &nbsp;<span style="font-size:0.5rem;color:var(--muted)">🟢 in smooth 5 &nbsp; 🟠 in smooth 10</span></div>
+  <div class="panel-title">Entry Log &nbsp;<span style="font-size:0.5rem;color:var(--muted)">
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7fff6b;flex-shrink:0"></span> smooth 5</span>
+    &nbsp;
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ffcc00;flex-shrink:0"></span> smooth 10</span>
+  </span></div>
   <div class="log-scroll" id="entryLog">
     <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.65rem;">No entries yet.</div>
   </div>
@@ -583,7 +591,7 @@ function updateStats() {
 function updateChips() {
   const area = document.getElementById('chipArea');
   area.innerHTML = '';
-  const recent = gains.slice(-20);
+  const recent = gains.slice(-10);
   recent.forEach(g => {
     const chip = document.createElement('div');
     chip.className = 'entry-chip';
@@ -837,9 +845,9 @@ function drawGainChart() {
     ctx.setLineDash([]);
   }
 
-  drawAligned(totalAvg, '#ff6b35', [4, 3]);
+  drawAligned(totalAvg, '#ff6b35');
   drawAligned(smooth5,  '#7fff6b');
-  drawAligned(smooth10, '#ffcc00', [2, 2]);
+  drawAligned(smooth10, '#ffcc00');
 }
 
 function drawTimeChart() {
@@ -895,8 +903,8 @@ function drawTimeChart() {
     ctx.fillText(fmt(val), pad.left - 3, y + 3);
   }
 
-  // X labels — evenly spaced across the time range, not per-entry
-  const xSteps = 5;
+  // X labels — 0, 25%, 50%, 75%, 100% of session duration
+  const xSteps = 4;
   ctx.fillStyle = getCSSVar('--muted');
   ctx.font = '9px Share Tech Mono, monospace';
   for (let i = 0; i <= xSteps; i++) {
@@ -941,14 +949,6 @@ function drawTimeChart() {
     ctx.arc(x, y, 3, 0, Math.PI * 2);
     ctx.fill();
   });
-
-  // "~ estimating" watermark when early
-  if (!isReal(1)) {
-    ctx.fillStyle = getCSSVar('--muted');
-    ctx.font = '9px Share Tech Mono, monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText('~ estimating', w - pad.right - 2, pad.top + 10);
-  }
 }
 
 // Initial draw

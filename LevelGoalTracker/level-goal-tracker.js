@@ -18,7 +18,11 @@ function saveData(data) {
 // ═══════════════════════════════════════════════
 
 function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
 }
 
 function daysBetween(dateStrA, dateStrB) {
@@ -554,11 +558,22 @@ setInterval(() => {
         const g = d.games.find(g => g.id === selectedGameId);
         const snap = g ? g.snapshot : null;
         dbg.textContent = 'Last tick: ' + new Date().toLocaleTimeString()
-            + ' | game: ' + selectedGameId
+            + ' | today: ' + todayStr()
             + ' | snapshot: ' + (snap ? snap.date : 'none')
             + ' | target: ' + (snap ? snap.dailyTarget : 'none')
             + ' | initDaily: ' + (snap ? snap.initialDailyLevel : 'none')
             + ' | current: ' + (snap ? snap.currentLevel : 'none')
-            + ' | daysLeft: ' + (g ? Math.max(0, daysBetween(todayStr(), g.deadlineDate)) : 'none');
+            + ' | daysLeft: ' + (g ? Math.max(0, daysBetween(todayStr(), g.deadlineDate)) : 'none')
+            + ' · tap to force rollover';
+        dbg.onclick = () => {
+            const d2 = loadData();
+            const g2 = d2.games.find(g => g.id === selectedGameId);
+            if (g2) {
+                g2.snapshot.date = '2000-01-01';
+                saveData(d2);
+                renderMain();
+                dbg.textContent = 'Rollover forced!';
+            }
+        };
     }
 }, 60000);

@@ -291,6 +291,17 @@ function renderActions(gameId) {
 
 let selectedGameId = null;
 
+function persistSelectedGame(id) {
+    if (id) localStorage.setItem('lgt_selectedGame', id);
+    else localStorage.removeItem('lgt_selectedGame');
+}
+
+function restoreSelectedGame(data) {
+    const saved = localStorage.getItem('lgt_selectedGame');
+    if (saved && data.games.find(g => g.id === saved)) return saved;
+    return null;
+}
+
 function renderSelector() {
     const data = loadData();
     const sel = document.getElementById('gameSelect');
@@ -308,6 +319,7 @@ function renderSelector() {
 
 function selectGame(id) {
     selectedGameId = id;
+    persistSelectedGame(id);
     renderMain();
 }
 
@@ -530,5 +542,8 @@ function confirmDelete() {
 // ═══════════════════════════════════════════════
 
 initTheme();
+const data = loadData();
+selectedGameId = restoreSelectedGame(data);
 renderSelector();
 renderMain();
+setInterval(renderMain, 60000);

@@ -546,4 +546,8 @@ const data = loadData();
 selectedGameId = restoreSelectedGame(data);
 renderSelector();
 renderMain();
-setInterval(renderMain, 60000);
+setInterval(() => {
+    renderMain();
+    const dbg = document.getElementById('dbg');
+    if (dbg) dbg.textContent = 'Last tick: ' + new Date().toLocaleTimeString();
+}, 60000);

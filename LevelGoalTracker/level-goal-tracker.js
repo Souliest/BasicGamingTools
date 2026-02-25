@@ -556,6 +556,9 @@ setInterval(() => {
         dbg.textContent = 'Last tick: ' + new Date().toLocaleTimeString()
             + ' | game: ' + selectedGameId
             + ' | snapshot: ' + (snap ? snap.date : 'none')
-            + ' | target: ' + (snap ? snap.dailyTarget : 'none');
+            + ' | target: ' + (snap ? snap.dailyTarget : 'none')
+            + ' | initDaily: ' + (snap ? snap.initialDailyLevel : 'none')
+            + ' | current: ' + (snap ? snap.currentLevel : 'none')
+            + ' | daysLeft: ' + (g ? Math.max(0, daysBetween(todayStr(), g.deadlineDate)) : 'none');
     }
 }, 60000);

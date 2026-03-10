@@ -2,17 +2,20 @@
 let gains = [];
 let startTime = null;
 
+const STORAGE_GAINS = 'bgt:xp-tracker:gains';
+const STORAGE_START = 'bgt:xp-tracker:start';
+
 function saveData() {
     try {
-        localStorage.setItem('xptracker_gains', JSON.stringify(gains));
-        localStorage.setItem('xptracker_start', startTime ? String(startTime) : '');
+        localStorage.setItem(STORAGE_GAINS, JSON.stringify(gains));
+        localStorage.setItem(STORAGE_START, startTime ? String(startTime) : '');
     } catch(e) {}
 }
 
 function loadData() {
     try {
-        const g = localStorage.getItem('xptracker_gains');
-        const s = localStorage.getItem('xptracker_start');
+        const g = localStorage.getItem(STORAGE_GAINS);
+        const s = localStorage.getItem(STORAGE_START);
         if (g) gains = JSON.parse(g);
         if (s) startTime = parseInt(s) || null;
     } catch(e) {}

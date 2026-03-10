@@ -2,7 +2,8 @@
 // Storage
 // ═══════════════════════════════════════════════
 
-const STORAGE_KEY = 'levelGoalTracker_v1';
+const STORAGE_KEY         = 'bgt:level-goal-tracker:data';
+const STORAGE_SELECTED    = 'bgt:level-goal-tracker:selected-game';
 
 function loadData() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { games: [] }; }
@@ -296,12 +297,12 @@ function renderActions(gameId) {
 let selectedGameId = null;
 
 function persistSelectedGame(id) {
-    if (id) localStorage.setItem('lgt_selectedGame', id);
-    else localStorage.removeItem('lgt_selectedGame');
+    if (id) localStorage.setItem(STORAGE_SELECTED, id);
+    else localStorage.removeItem(STORAGE_SELECTED);
 }
 
 function restoreSelectedGame(data) {
-    const saved = localStorage.getItem('lgt_selectedGame');
+    const saved = localStorage.getItem(STORAGE_SELECTED);
     if (saved && data.games.find(g => g.id === saved)) return saved;
     return null;
 }
@@ -478,7 +479,6 @@ function saveGame() {
         game.snapshot.date = todayStr();
         game.snapshot.dailyTarget = calcDailyTarget(game);
     } else {
-        // For backdated games, createdDate = today - (totalDays - days)
         const daysAlreadyElapsed = isBackdated ? (totalDays - days) : 0;
         const createdDate = new Date();
         createdDate.setDate(createdDate.getDate() - daysAlreadyElapsed);

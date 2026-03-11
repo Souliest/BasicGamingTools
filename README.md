@@ -27,6 +27,9 @@ Track experience points and monitor progression toward defined XP goals.
 ### LevelGoalTracker
 Track progress from a current level to a target level with real-time updates and local persistence.
 
+### ThingCounter
+Track arbitrary counters — kills, collectibles, resources, or anything else — organised into a named tree structure, grouped by game. Supports bounded and open-ended counters, decrement mode, configurable step sizes, and per-counter colors.
+
 ---
 
 ## Technical Overview
@@ -66,6 +69,12 @@ BasicGamingTools/
 │   └── README.md
 │
 ├── LevelGoalTracker/
+│   ├── index.html
+│   ├── styles.css
+│   ├── script.js
+│   └── README.md
+│
+├── ThingCounter/
 │   ├── index.html
 │   ├── styles.css
 │   ├── script.js

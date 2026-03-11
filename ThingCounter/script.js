@@ -54,6 +54,13 @@ let editMode = false;
 // Game selector
 // ═══════════════════════════════════════════════
 
+function updateGameActionButtons() {
+    const data = loadData();
+    const hasGame = !!selectedGameId && !!data.games.find(g => g.id === selectedGameId);
+    document.getElementById('editGameBtn').style.display   = hasGame ? '' : 'none';
+    document.getElementById('deleteGameBtn').style.display = hasGame ? '' : 'none';
+}
+
 function renderSelector() {
     const data = loadData();
     const sel = document.getElementById('gameSelect');
@@ -67,18 +74,14 @@ function renderSelector() {
     if (selectedGameId && data.games.find(g => g.id === selectedGameId)) {
         sel.value = selectedGameId;
     }
-    const hasGame = !!selectedGameId && !!data.games.find(g => g.id === selectedGameId);
-    document.getElementById('editGameBtn').style.display   = hasGame ? '' : 'none';
-    document.getElementById('deleteGameBtn').style.display = hasGame ? '' : 'none';
+    updateGameActionButtons();
 }
 
 function selectGame(id) {
     selectedGameId = id || null;
     if (selectedGameId) localStorage.setItem(STORAGE_SELECTED, selectedGameId);
     else localStorage.removeItem(STORAGE_SELECTED);
-    const hasGame = !!selectedGameId;
-    document.getElementById('editGameBtn').style.display   = hasGame ? '' : 'none';
-    document.getElementById('deleteGameBtn').style.display = hasGame ? '' : 'none';
+    updateGameActionButtons();
     renderMain();
 }
 
@@ -157,6 +160,13 @@ function countDescendants(node) {
     return node.children.reduce((s, c) => s + 1 + countDescendants(c), 0);
 }
 
+function clampValue(node, val) {
+    if (node.counterType === 'bounded' && node.max > 0) {
+        return Math.max(0, Math.min(node.max, val));
+    }
+    return Math.max(0, val);
+}
+
 function isAncestor(nodes, ancestorId, targetId) {
     // Returns true if ancestorId is an ancestor of targetId
     function check(node) {
@@ -180,9 +190,6 @@ const collapsedBranches = new Set();
 
 function renderMain() {
     const content = document.getElementById('mainContent');
-
-    // Ensure edit mode banner exists
-    let banner = content.querySelector('.edit-mode-banner');
 
     if (!selectedGameId) {
         const data = loadData();
@@ -215,14 +222,14 @@ function renderMain() {
     treeRoot.appendChild(addRootBtn);
 }
 
-function renderNodes(nodes, container, parentId) {
+function renderNodes(nodes, container) {
     nodes.forEach(node => {
-        const el = renderNode(node, parentId);
+        const el = renderNode(node);
         container.appendChild(el);
     });
 }
 
-function renderNode(node, parentId) {
+function renderNode(node) {
     const wrapper = document.createElement('div');
     wrapper.className = 'tree-node';
     wrapper.dataset.id = node.id;
@@ -233,7 +240,7 @@ function renderNode(node, parentId) {
         childContainer.className = 'tree-node-children' + (collapsedBranches.has(node.id) ? ' collapsed' : '');
         childContainer.id = 'children-' + node.id;
         if (node.children && node.children.length > 0) {
-            renderNodes(node.children, childContainer, node.id);
+            renderNodes(node.children, childContainer);
         }
         // Add-child button (only visible in edit mode via CSS)
         const addChildBtn = document.createElement('button');
@@ -254,7 +261,6 @@ function renderBranch(node) {
     row.className = 'branch-row';
 
     const isCollapsed = collapsedBranches.has(node.id);
-    const hasChildren = node.children && node.children.length > 0;
 
     row.innerHTML = `
         <button class="branch-toggle" onclick="toggleBranch('${node.id}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">${isCollapsed ? '▶' : '▼'}</button>
@@ -322,13 +328,7 @@ function counterStep(nodeId, direction) {
     if (!node) return;
 
     const step = node.step || 1;
-    let newVal = node.value + direction * step;
-    if (node.counterType === 'bounded' && node.max > 0) {
-        newVal = Math.max(0, Math.min(node.max, newVal));
-    } else {
-        newVal = Math.max(0, newVal);
-    }
-    node.value = newVal;
+    node.value = clampValue(node, node.value + direction * step);
     saveData(data);
 
     // Re-render just the counter card
@@ -427,10 +427,7 @@ function onFocusValueInput() {
     if (!game) return;
     const node = findNode(game.nodes, focusNodeId);
     if (!node) return;
-    let newVal = val;
-    if (node.counterType === 'bounded' && node.max > 0) newVal = Math.max(0, Math.min(node.max, newVal));
-    else newVal = Math.max(0, newVal);
-    node.value = newVal;
+    node.value = clampValue(node, val);
     saveData(data);
     updateFocusDisplay();
     refreshCounterCard(focusNodeId, node);
@@ -473,10 +470,7 @@ function focusStep(direction, useOne) {
     if (!node) return;
 
     const stepAmt = useOne ? 1 : (node.step || 1);
-    let newVal = node.value + direction * stepAmt;
-    if (node.counterType === 'bounded' && node.max > 0) newVal = Math.max(0, Math.min(node.max, newVal));
-    else newVal = Math.max(0, newVal);
-    node.value = newVal;
+    node.value = clampValue(node, node.value + direction * stepAmt);
     saveData(data);
     updateFocusDisplay();
     refreshCounterCard(focusNodeId, node);
@@ -814,10 +808,9 @@ function openConfirmDeleteNode(nodeId) {
     pendingDeleteId = nodeId;
     pendingDeleteType = 'node';
     document.getElementById('confirmNodeName').textContent = node.name;
-    const desc = node.type === 'branch'
+    document.getElementById('confirmNodeExtra').textContent = node.type === 'branch'
         ? `This will also delete ${countDescendants(node)} child node(s).`
         : 'This cannot be undone.';
-    document.getElementById('confirmNodeExtra').textContent = desc;
     document.getElementById('confirmOverlay').classList.add('open');
 }
 

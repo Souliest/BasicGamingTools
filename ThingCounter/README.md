@@ -1,6 +1,7 @@
 # Thing Counter
 
-A lightweight, browser-based tool for tracking arbitrary counters during gaming sessions, organised into a named tree structure grouped by game.
+A lightweight, browser-based tool for tracking arbitrary counters during gaming sessions, organised into a named tree
+structure grouped by game.
 
 This project is fully client-side and requires no installation, backend, or external dependencies.
 
@@ -10,7 +11,8 @@ This project is fully client-side and requires no installation, backend, or exte
 
 Thing Counter allows you to:
 
-- Create counters for anything you want to track — kills, collectibles, resources, quest items, charges, or any other numeric value
+- Create counters for anything you want to track — kills, collectibles, resources, quest items, charges, or any other
+  numeric value
 - Organise counters into named branches, nested to any depth
 - Group counter sets by game
 - Persist all data locally in the browser
@@ -46,11 +48,16 @@ ThingCounter/
 │
 ├── index.html
 ├── styles.css
-├── script.js
+├── js/
+│   ├── main.js       # Entry point: state, tree interactions, globals, init
+│   ├── storage.js    # localStorage keys, loadData, saveData
+│   ├── swatches.js   # Color palette data and lookup helper
+│   ├── nodes.js      # Pure tree helpers: find, insert, remove, clamp, etc.
+│   ├── render.js     # Tree, counter card, and branch row rendering
+│   ├── focus.js      # Focus modal and Quick Counter modal
+│   └── modal.js      # Branch, counter, and game modals; confirm-delete flow
 └── README.md
 ```
-
-Files are separated for maintainability and clarity.
 
 ---
 
@@ -73,7 +80,7 @@ You can modify:
 
 - Layout in `index.html`
 - Styling in `styles.css`
-- Logic and counter behavior in `script.js`
+- Logic and counter behavior in the `js/` modules
 
 No build process is required.
 

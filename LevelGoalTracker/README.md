@@ -10,9 +10,9 @@ This project is fully client-side and requires no installation, backend, or exte
 
 Level Goal Tracker allows you to:
 
-- Set a current level
-- Define a target level
-- View calculated progress toward the goal
+- Set a current level and a target level with a deadline
+- Track daily required pace and whether you're ahead or behind
+- Define checkpoints with optional rewards
 - Persist data locally in the browser
 
 The application is designed to be simple, fast, and easy to modify.
@@ -22,7 +22,10 @@ The application is designed to be simple, fast, and easy to modify.
 ## Features
 
 - Clean and responsive interface
-- Real-time progress updates
+- Daily target calculation with automatic midnight rollover
+- Baseline vs. revised pace tracking
+- Checkpoint progress with optional reward tracking
+- Backdate support for goals already in progress
 - Local storage persistence
 - No page reloads required
 - No frameworks or build tools
@@ -36,20 +39,26 @@ LevelGoalTracker/
 │
 ├── index.html
 ├── styles.css
-├── script.js
+├── js/
+│   ├── main.js       # Entry point: state, selector, renderMain, globals, init
+│   ├── storage.js    # localStorage keys, loadData, saveData
+│   ├── dates.js      # Pure date helpers: todayStr, daysBetween, formatDate, etc.
+│   ├── snapshot.js   # Daily snapshot rollover and target calculation
+│   ├── stats.js      # Pure computed stats: pace, progress, track status
+│   ├── render.js     # HTML section builders for the main view
+│   └── modal.js      # Add/edit/delete game modal and confirm-delete flow
 └── README.md
 ```
-
-Files are separated for maintainability and clarity.
 
 ---
 
 ## Usage
 
 1. Open `index.html` in a browser
-2. Enter your current level
-3. Enter your goal level
-4. Track your progress
+2. Click **+ Add** to create a game entry
+3. Enter a name, current level, goal level, and deadline
+4. Add at least one checkpoint level
+5. Click **Update** each day to log your current level
 
 Data is saved automatically in your browser using localStorage.
 
@@ -61,7 +70,7 @@ You can modify:
 
 - Layout in `index.html`
 - Styling in `styles.css`
-- Logic and calculations in `script.js`
+- Logic and calculations in the `js/` modules
 
 No build process is required.
 

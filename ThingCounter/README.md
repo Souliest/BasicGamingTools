@@ -28,8 +28,10 @@ The application is designed to be flexible, fast, and easy to modify.
 - Fill bar for bounded counters showing progress between min and max
 - 20-color palette for per-counter color assignment
 - Focus modal for large-target interaction with a single counter
+- Quick Counter — a game-agnostic scratchpad counter available without selecting a game
 - Edit mode for managing tree structure
 - Single-node edit via double-tap or long-press
+- Alphabetical sort order per game (A↑ / A↓ / off, persisted)
 - Game settings: rename, reset all counters, delete
 - Clean and responsive interface
 - Local storage persistence
@@ -59,6 +61,7 @@ Files are separated for maintainability and clarity.
 3. Add branches and counters using the tree action bar
 4. Tap a counter's `+` or `−` to update its value
 5. Tap a counter's name to open the focus modal for detailed interaction
+6. Use **⚡ Quick Counter** from the no-game screen for a fast, game-agnostic scratchpad counter
 
 Data is saved automatically in your browser using localStorage.
 

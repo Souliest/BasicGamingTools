@@ -188,6 +188,22 @@ The **✎** button next to the game dropdown opens Game Settings. From there you
 > **Tip:** Bounded + Decrement is the combination for anything that counts down from a known max — charges, uses, lives,
 > ammo. Set Max to the starting amount, Min to 0, and tick Decrement.
 
+### Quick Counter
+
+When no game is selected, a **⚡ Quick Counter** button appears below the prompt. It opens a scratchpad counter — no
+setup, no game required.
+
+The Quick Counter has the same controls as the Focus Modal: editable value, ±1 buttons, an editable step size, ±step
+buttons, and a reset to zero. It gets a random color each time it's opened fresh, which carries through the session.
+
+**State persistence:**
+
+| Action                                          | Effect on Quick Counter                                                           |
+|-------------------------------------------------|-----------------------------------------------------------------------------------|
+| Page refresh or blur (e.g. alt-tab, phone call) | State preserved — value, step, and color all restored on reopen.                  |
+| Closing with ✕                                  | State wiped. Next open starts fresh with a new random color.                      |
+| Selecting a game                                | State wiped and modal closed. Intentional navigation ends the scratchpad session. |
+
 ---
 
 ## Common Features
@@ -207,12 +223,15 @@ can copy the relevant keys from your browser's developer tools (F12 → Applicat
 
 ### localStorage Keys Reference
 
-| Key                                    | Tool               | Contents                                  |
-|----------------------------------------|--------------------|-------------------------------------------|
-| `bgt:theme`                            | Global             | Dark or light theme preference.           |
-| `bgt:xp-tracker:gains`                 | XP Tracker         | Array of logged XP gains with timestamps. |
-| `bgt:xp-tracker:start`                 | XP Tracker         | Session start timestamp.                  |
-| `bgt:level-goal-tracker:data`          | Level Goal Tracker | All games, goals, and daily history.      |
-| `bgt:level-goal-tracker:selected-game` | Level Goal Tracker | Last selected game.                       |
-| `bgt:thing-counter:data`               | Thing Counter      | All games and their counter trees.        |
-| `bgt:thing-counter:selected-game`      | Thing Counter      | Last selected game.                       |
+| Key                                     | Tool               | Contents                                  |
+|-----------------------------------------|--------------------|-------------------------------------------|
+| `bgt:theme`                             | Global             | Dark or light theme preference.           |
+| `bgt:xp-tracker:gains`                  | XP Tracker         | Array of logged XP gains with timestamps. |
+| `bgt:xp-tracker:start`                  | XP Tracker         | Session start timestamp.                  |
+| `bgt:level-goal-tracker:data`           | Level Goal Tracker | All games, goals, and daily history.      |
+| `bgt:level-goal-tracker:selected-game`  | Level Goal Tracker | Last selected game.                       |
+| `bgt:thing-counter:data`                | Thing Counter      | All games and their counter trees.        |
+| `bgt:thing-counter:selected-game`       | Thing Counter      | Last selected game.                       |
+| `bgt:thing-counter:quick-counter-val`   | Thing Counter      | Quick Counter current value.              |
+| `bgt:thing-counter:quick-counter-step`  | Thing Counter      | Quick Counter step size.                  |
+| `bgt:thing-counter:quick-counter-color` | Thing Counter      | Quick Counter accent color.               |

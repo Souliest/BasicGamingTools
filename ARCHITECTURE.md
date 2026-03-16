@@ -90,6 +90,9 @@ All keys follow the pattern `bgt:tool-name:descriptor`. Namespace prefix `bgt` p
 | `bgt:level-goal-tracker:selected-game` | LevelGoalTracker | Selected game id string |
 | `bgt:thing-counter:data` | ThingCounter | JSON `{ games: [...] }` |
 | `bgt:thing-counter:selected-game` | ThingCounter | Selected game id string |
+| `bgt:thing-counter:quick-counter-val` | ThingCounter | Quick Counter current value |
+| `bgt:thing-counter:quick-counter-step` | ThingCounter | Quick Counter step size |
+| `bgt:thing-counter:quick-counter-color` | ThingCounter | Quick Counter accent color (hex string) |
 
 **Rules:**
 - Never clobber an existing new-format key when migrating or defaulting
@@ -199,8 +202,8 @@ document.addEventListener('click', () => {
 - **Two UI bars:** a selector bar (game dropdown + ✎ game settings + `+ Game`) and a tree action bar (`+ Branch`, `+ Counter`, ✏️ edit mode toggle) — the tree action bar is only visible when a game is selected
 - **Separate Add/Edit modals** for branches and counters — no combined node-type modal
 - **Counter types:**
-    - `open` — unbounded, value ≥ 0
-    - `bounded` — has `min`, `max`, `initial` (reset target). Fill bar shown. `clampValue` uses `Math.max(min, Math.min(max, val))`
+  - `open` — unbounded, value ≥ 0
+  - `bounded` — has `min`, `max`, `initial` (reset target). Fill bar shown. `clampValue` uses `Math.max(min, Math.min(max, val))`
 - **Decrement counters** (`decrement: true`): dominant button is `−`, fill bar drains left-to-right (bar width = `(value - min) / (max - min) * 100%`). Formula is the same for both increment and decrement — decrement just means the user taps `−` most often
 - **Edit mode** (global toggle): reveals `+` / `✎` / `🗑` on branches and `✎` / `×1` / `↺` / `🗑` on counters. Ghost "add counter" buttons appear at the bottom of each branch and the root
 - **Single-node edit mode**: double-click or long-press (500ms) any node to activate local edit controls for that node only, without entering global edit mode
@@ -209,6 +212,7 @@ document.addEventListener('click', () => {
 - `initialValue(node)` returns `node.initial` if set, otherwise `node.max` for decrement bounded, `node.min` for increment bounded, `0` for open
 - Counter card padding: 14px top/bottom
 - **Color palette**: 20 named colors covering the full hue wheel (Cherry → Rose). Stored as `{ color: '#hex', name: 'Name' }` objects in a `SWATCHES` array. Default color: Aqua (`#2ED9FF`). The color picker uses a display field (filled circle + name) that opens a floating popover of 20 plain circles on click
+- **Quick Counter**: a game-agnostic scratchpad counter accessible from the no-game-selected screen. Opens a focus-style modal with value, ±1, editable step, ±step, and ↺ reset to zero. Gets a random color from SWATCHES on first open. State (val, step, color) is persisted in three dedicated localStorage keys and survives page refreshes and blur events. Closing with ✕ wipes the state (fresh next time). Selecting a game also resets it and closes the modal — intentional navigation is treated as a session boundary. Backdrop tap does not reset (treated as accidental dismiss).
 
 ---
 
@@ -224,3 +228,4 @@ document.addEventListener('click', () => {
 - **Separate Add and Edit modals per node type** — cleaner UX than a combined modal with a type-switch radio; also avoids the type-change complexity when editing existing nodes
 - **`min` field on bounded counters** — makes decrement counters with a non-zero floor (e.g. health that floors at 1) straightforward without special-casing
 - **`initial` field separate from `min`/`max`** — reset target is not always the floor or ceiling; storing it explicitly avoids re-deriving it on reset
+- **Quick Counter reset on game selection** — selecting a game is treated as an intentional navigation event, so the QC state is wiped and the modal is closed. Page refresh and blur are treated as accidental and preserve state. This distinction maps to the user intent: reaching for a game means you're done with the scratchpad; losing focus does not.

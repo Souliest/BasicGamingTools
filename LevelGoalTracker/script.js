@@ -258,7 +258,7 @@ function renderNextCheckpointPanel(s) {
           <div class="next-label">Levels to go</div>
           <div class="next-value">${s.levelsToNext.toLocaleString()}</div>
         </div>
-        ${s.nextTier.reward ? `<div class="next-reward">🏅 ${s.nextTier.reward} pts</div>` : ''}
+        ${s.nextTier.reward != null && s.nextTier.reward !== 0 ? `<div class="next-reward">🏅 ${s.nextTier.reward} pts</div>` : ''}
       </div>
     </div>`;
 }
@@ -285,8 +285,10 @@ function renderCheckpointsPanel(game, s) {
         const isNext = !done && (i === 0 || s.currentLevel >= game.tiers[i - 1].level);
         const rowClass = done ? 'done' : isNext ? 'next-up' : '';
         const icon = done ? '✅' : isNext ? '▶' : '○';
+        // FIX #13: reward 0 now shows '0 pts' rather than '—' so a user who
+        // explicitly entered 0 can see it, distinguishing it from a blank field.
         const rewardCell = s.hasRewards
-            ? `<td class="tier-reward">${t.reward ? t.reward + ' pts' : '—'}</td>`
+            ? `<td class="tier-reward">${t.reward != null ? t.reward + ' pts' : '—'}</td>`
             : '';
         return `<tr class="${rowClass}">
       <td class="tier-check">${icon}</td>
@@ -642,4 +644,6 @@ const data = loadData();
 selectedGameId = restoreSelectedGame(data);
 renderSelector();
 renderMain();
-setInterval(renderMain, 60000);
+// FIX #14: store interval handle so it can be cleared if needed in future
+//          (e.g. when Supabase sync is added and polling becomes unnecessary).
+const _renderInterval = setInterval(renderMain, 60000);

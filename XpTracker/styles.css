@@ -95,6 +95,7 @@ input[type="tel"]:focus {
   flex-shrink: 0;
 }
 
+/* FIX #31: disabled state for Reset button — shown when no entries exist */
 .btn-reset:disabled {
   opacity: 0.35;
   cursor: not-allowed;

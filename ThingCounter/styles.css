@@ -135,7 +135,10 @@ select#gameSelect:focus {
   margin-bottom: 12px;
 }
 
+/* FIX #26: empty state shown when a game exists but has no nodes yet */
 .empty-state-game {
+  text-align: center;
+  color: var(--muted);
   padding: 40px 20px;
   font-size: 0.88rem;
   line-height: 2;
@@ -148,7 +151,6 @@ select#gameSelect:focus {
   font-size: 2rem;
   margin-bottom: 8px;
 }
-
 
 /* ── Edit mode banner ── */
 .edit-mode-banner {
@@ -369,7 +371,6 @@ select#gameSelect:focus {
   transform: scale(0.92);
 }
 
-/* Dominant button (increment default: +, decrement default: -) */
 .c-btn.dominant {
   width: 42px;
   font-weight: bold;
@@ -600,7 +601,6 @@ select#gameSelect:focus {
   gap: 6px;
 }
 
-/* Flipped for decrement: dominant is left (minus) */
 .focus-btn-row.decrement {
   grid-template-columns: 2fr 1fr;
 }
@@ -640,7 +640,6 @@ select#gameSelect:focus {
   box-shadow: var(--glow);
 }
 
-/* When decrement, minus becomes dominant */
 .focus-btn-minus.dominant {
   color: var(--accent);
   border-color: var(--accent);
@@ -809,6 +808,23 @@ select#gameSelect:focus {
   border-color: var(--accent);
 }
 
+/* FIX #3: fieldset/legend for Counter Type radio group —
+   replaces the bare <label> that had no matching input id. */
+.radio-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.radio-legend {
+  font-size: 0.73rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 5px;
+  padding: 0;
+}
+
 .radio-row {
   display: flex;
   gap: 16px;
@@ -891,13 +907,14 @@ select#gameSelect:focus {
   font-size: 0.7rem;
 }
 
-/* Swatch popover */
+/* FIX #24: swatch popover raised to z-index 210 so it renders above the
+   confirm overlay (z-index 200) if both are somehow visible simultaneously. */
 .swatch-popover {
   display: none;
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: 200;
+  z-index: 210;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 9px;

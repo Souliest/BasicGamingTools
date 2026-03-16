@@ -482,25 +482,33 @@ function renderCounter(node) {
 // Long-press helper
 // ═══════════════════════════════════════════════
 
+// FIX #18: cancel long-press only when the pointer has moved beyond a small
+// threshold (10px). Without this, stationary-finger micro-jitter on some
+// touch devices would generate pointermove events and prevent long-press
+// from ever firing. The threshold distinguishes an intentional scroll
+// gesture from normal finger settle on touch screens.
 function attachLongPress(el, callback) {
     let timer = null;
-    let cancelled = false;
+    let startX = 0;
+    let startY = 0;
+    const THRESHOLD = 10;
 
     el.addEventListener('pointerdown', e => {
-        cancelled = false;
+        startX = e.clientX;
+        startY = e.clientY;
         timer = setTimeout(() => {
             timer = null;
-            if (!cancelled) callback();
+            callback();
         }, 500);
     });
 
-    // FIX #18 (pass 2 prep): cancel on meaningful movement to avoid
-    // triggering during scroll gestures on mobile.
     el.addEventListener('pointermove', e => {
-        if (timer) {
+        if (!timer) return;
+        const dx = Math.abs(e.clientX - startX);
+        const dy = Math.abs(e.clientY - startY);
+        if (dx > THRESHOLD || dy > THRESHOLD) {
             clearTimeout(timer);
             timer = null;
-            cancelled = true;
         }
     });
 
@@ -1210,9 +1218,12 @@ function qcLoad() {
         color = qcRandomColor();
         localStorage.setItem(STORAGE_QC_COLOR, color);
     }
+    // FIX #23: use ?? instead of || so a stored value of 0 is returned as 0
+    // rather than falling through to the default. val=0 is a valid counter
+    // state; || would incorrectly promote it to the fallback value.
     return {
-        val: parseFloat(localStorage.getItem(STORAGE_QC_VAL)) || 0,
-        step: parseFloat(localStorage.getItem(STORAGE_QC_STEP)) || 1,
+        val: parseFloat(localStorage.getItem(STORAGE_QC_VAL)) ?? 0,
+        step: parseFloat(localStorage.getItem(STORAGE_QC_STEP)) ?? 1,
         color,
     };
 }

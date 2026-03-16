@@ -101,13 +101,15 @@
       <select id="acParent"></select>
     </div>
     <div class="form-group">
-      <label>Counter Type</label>
-      <div class="radio-row">
-        <label class="radio-label"><input type="radio" name="acCounterType" value="open"
-                                          onchange="onCounterTypeChange()"> Open-ended</label>
-        <label class="radio-label"><input type="radio" name="acCounterType" value="bounded"
-                                          onchange="onCounterTypeChange()"> Bounded</label>
-      </div>
+      <fieldset class="radio-fieldset">
+        <legend class="radio-legend">Counter Type</legend>
+        <div class="radio-row">
+          <label class="radio-label"><input type="radio" name="acCounterType" value="open"
+                                            onchange="onCounterTypeChange()"> Open-ended</label>
+          <label class="radio-label"><input type="radio" name="acCounterType" value="bounded"
+                                            onchange="onCounterTypeChange()"> Bounded</label>
+        </div>
+      </fieldset>
     </div>
     <div id="acBoundedFields" style="display:none">
       <div class="form-group">

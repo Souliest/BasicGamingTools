@@ -1,3 +1,5 @@
+<!-- LevelGoalTracker/index.html -->
+<!-- Shell: loads shared theme/header globals, then boots the tool via js/main.js (module). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -101,7 +103,6 @@
     });
 
     // ── Backdrop tap dismissal ──
-    // Game modal: backdrop tap closes only if not a form interaction
     document.getElementById('gameModal').addEventListener('click', function (e) {
         if (e.target === this) closeModal();
     });
@@ -109,6 +110,6 @@
         if (e.target === this) closeConfirm();
     });
 </script>
-<script src="script.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

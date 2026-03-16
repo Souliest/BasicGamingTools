@@ -1,0 +1,215 @@
+// LevelGoalTracker/js/modal.js
+// Add/edit/delete game modal: open, close, save, tier row management, backdate toggle, and confirm-delete flow.
+
+// ═══════════════════════════════════════════════
+// Modal — add / edit game modal and tier row logic
+// ═══════════════════════════════════════════════
+
+import {loadData, saveData} from './storage.js';
+import {todayStr, daysBetween, localDatePlusDays} from './dates.js';
+import {calcDailyTarget} from './snapshot.js';
+
+// ── State ──
+let editingGameId = null;
+
+// ── Tier rows ──
+
+export function addTierRow(level = '', reward = '') {
+    const rows = document.getElementById('tierRows');
+    const div = document.createElement('div');
+    div.className = 'tier-row';
+    div.innerHTML = `
+    <input type="number" class="tier-level"  placeholder="Level" value="${level}" min="1">
+    <input type="number" class="tier-reward" placeholder="0.0"   step="0.1" value="${reward}">
+    <button class="tier-remove" onclick="this.parentElement.remove()">✕</button>
+  `;
+    rows.appendChild(div);
+}
+
+// ── Backdate helpers ──
+
+export function toggleBackdate() {
+    const checked = document.getElementById('fBackdate').checked;
+    document.getElementById('backdateFields').classList.toggle('visible', checked);
+    if (!checked) {
+        document.getElementById('fTotalDays').value = '';
+        document.getElementById('fStartLevel').value = '0';
+    }
+}
+
+function resetBackdateFields() {
+    document.getElementById('fBackdate').checked = false;
+    document.getElementById('backdateFields').classList.remove('visible');
+    document.getElementById('fTotalDays').value = '';
+    document.getElementById('fStartLevel').value = '0';
+}
+
+// ── Open / close ──
+
+export function openAddModal() {
+    editingGameId = null;
+    document.getElementById('modalTitle').textContent = 'Add Game';
+    document.getElementById('fName').value = '';
+    document.getElementById('fCurrentLevel').value = '0';
+    document.getElementById('fDays').value = '';
+    resetBackdateFields();
+    document.getElementById('tierRows').innerHTML = '';
+    addTierRow();
+    document.getElementById('gameModal').classList.add('open');
+}
+
+export function openEditModal(id, onSaved) {
+    const data = loadData();
+    const game = data.games.find(g => g.id === id);
+    if (!game) return;
+
+    editingGameId = id;
+    document.getElementById('modalTitle').textContent = 'Edit Game';
+    document.getElementById('fName').value = game.name;
+    document.getElementById('fCurrentLevel').value = game.snapshot.currentLevel;
+
+    const daysLeft = Math.max(0, daysBetween(todayStr(), game.deadlineDate));
+    document.getElementById('fDays').value = daysLeft;
+
+    const daysElapsed = Math.max(0, daysBetween(game.createdDate, todayStr()));
+    const totalDays = daysElapsed + daysLeft;
+    const wasBackdated = !!game.backdated;
+
+    if (wasBackdated) {
+        document.getElementById('fBackdate').checked = true;
+        document.getElementById('backdateFields').classList.add('visible');
+        document.getElementById('fTotalDays').value = totalDays;
+        document.getElementById('fStartLevel').value = game.startLevel;
+    } else {
+        resetBackdateFields();
+    }
+
+    const rows = document.getElementById('tierRows');
+    rows.innerHTML = '';
+    game.tiers.forEach(t => addTierRow(t.level, t.reward));
+
+    document.getElementById('gameModal').classList.add('open');
+}
+
+export function closeModal() {
+    document.getElementById('gameModal').classList.remove('open');
+}
+
+// ── Save ──
+
+// onSaved(selectedGameId) — callback so main.js can re-render after save
+export function saveGame(onSaved) {
+    const name = document.getElementById('fName').value.trim();
+    const currentLevelRaw = document.getElementById('fCurrentLevel').value;
+    const currentLevel = currentLevelRaw === '' ? 0 : parseInt(currentLevelRaw);
+    const days = parseInt(document.getElementById('fDays').value);
+    const isBackdated = document.getElementById('fBackdate').checked;
+    const totalDays = isBackdated ? parseInt(document.getElementById('fTotalDays').value) : null;
+    const startLevelRaw = document.getElementById('fStartLevel').value;
+    const startLevel = isBackdated ? (startLevelRaw === '' ? 0 : parseInt(startLevelRaw)) : currentLevel;
+
+    if (!name) {
+        alert('Please enter a game title.');
+        return;
+    }
+    if (!days || days < 1) {
+        alert('Please enter a valid number of days remaining.');
+        return;
+    }
+    if (isBackdated && (!totalDays || totalDays <= days)) {
+        alert('Total days must be greater than days remaining.');
+        return;
+    }
+
+    const tierRows = document.querySelectorAll('.tier-row');
+    const tiers = [];
+    for (const row of tierRows) {
+        const lvl = parseInt(row.querySelector('.tier-level').value);
+        const rew = parseFloat(row.querySelector('.tier-reward').value) || 0;
+        if (!isNaN(lvl) && lvl > 0) tiers.push({level: lvl, reward: rew});
+    }
+    if (tiers.length === 0) {
+        alert('Please add at least one checkpoint.');
+        return;
+    }
+    tiers.sort((a, b) => a.level - b.level);
+
+    const data = loadData();
+    const deadlineDate = localDatePlusDays(days);
+
+    let savedId;
+    if (editingGameId) {
+        const game = data.games.find(g => g.id === editingGameId);
+        if (!game) return;
+        game.name = name;
+        game.tiers = tiers;
+        game.deadlineDate = deadlineDate;
+        game.backdated = isBackdated;
+        game.snapshot.currentLevel = currentLevel;
+        game.snapshot.initialDailyLevel = currentLevel;
+        game.snapshot.date = todayStr();
+        game.snapshot.dailyTarget = calcDailyTarget(game);
+        savedId = editingGameId;
+    } else {
+        const daysAlreadyElapsed = isBackdated ? (totalDays - days) : 0;
+        const createdDate = (() => {
+            const d = new Date();
+            d.setDate(d.getDate() - daysAlreadyElapsed);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        })();
+
+        const game = {
+            id: 'game_' + Date.now(),
+            name,
+            startLevel,
+            createdDate,
+            deadlineDate,
+            backdated: isBackdated || false,
+            tiers,
+            snapshot: {
+                date: todayStr(),
+                initialDailyLevel: currentLevel,
+                currentLevel,
+                dailyTarget: 0,
+            },
+        };
+        game.snapshot.dailyTarget = calcDailyTarget(game);
+        data.games.push(game);
+        savedId = game.id;
+    }
+
+    saveData(data);
+    closeModal();
+    onSaved(savedId);
+}
+
+// ── Confirm delete ──
+
+let pendingDeleteId = null;
+
+export function openConfirmDelete(id) {
+    const data = loadData();
+    const game = data.games.find(g => g.id === id);
+    if (!game) return;
+    pendingDeleteId = id;
+    document.getElementById('confirmGameName').textContent = game.name;
+    document.getElementById('confirmOverlay').classList.add('open');
+}
+
+export function closeConfirm() {
+    pendingDeleteId = null;
+    document.getElementById('confirmOverlay').classList.remove('open');
+}
+
+export function confirmDelete(onDeleted) {
+    if (!pendingDeleteId) return;
+    const data = loadData();
+    data.games = data.games.filter(g => g.id !== pendingDeleteId);
+    saveData(data);
+    const deletedId = pendingDeleteId;
+    closeConfirm();
+    onDeleted(deletedId);
+}

@@ -190,6 +190,38 @@
   </div>
 </div>
 
+<!-- ── Quick Counter Modal ── -->
+<div class="modal-overlay" id="quickCounterModal">
+  <div class="modal modal-focus">
+    <div class="focus-header">
+      <div class="focus-name" id="qcTitle">Quick Counter</div>
+      <button class="modal-close" onclick="closeQuickCounter()">✕</button>
+    </div>
+    <div class="focus-body">
+      <div class="focus-value-wrap" onclick="activateQcValueInput()">
+        <div class="focus-value-display" id="qcValueDisplay">0</div>
+        <input type="number" class="focus-value-input" id="qcValueInput" aria-label="Quick counter value"
+               oninput="onQcValueInput()" onblur="onQcValueBlur()">
+      </div>
+      <div class="focus-btn-row">
+        <button class="focus-btn focus-btn-minus" id="qcMinus1" onclick="qcStep(-1, true)">−1</button>
+        <button class="focus-btn focus-btn-plus"  id="qcPlus1"  onclick="qcStep( 1, true)">+1</button>
+      </div>
+      <div class="focus-step-row">
+        <span class="focus-step-label">Step:</span>
+        <div class="focus-step-display" id="qcStepDisplay" onclick="activateQcStepInput()"></div>
+        <input type="number" class="focus-step-input" id="qcStepInput" aria-label="Step size"
+               min="1" oninput="onQcStepInput()" onblur="onQcStepBlur()">
+      </div>
+      <div class="focus-btn-row">
+        <button class="focus-btn focus-btn-minus" id="qcMinusStep" onclick="qcStep(-1, false)">−s</button>
+        <button class="focus-btn focus-btn-plus"  id="qcPlusStep"  onclick="qcStep( 1, false)">+s</button>
+      </div>
+      <button class="focus-reset-btn" onclick="qcResetValue()">↺ Reset to zero</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Confirm Delete ── -->
 <div class="confirm-overlay" id="confirmOverlay">
   <div class="confirm-box">

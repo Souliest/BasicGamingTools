@@ -4,6 +4,9 @@
 
 const STORAGE_KEY      = 'bgt:thing-counter:data';
 const STORAGE_SELECTED = 'bgt:thing-counter:selected-game';
+const STORAGE_QC_VAL   = 'bgt:thing-counter:quick-counter-val';
+const STORAGE_QC_STEP  = 'bgt:thing-counter:quick-counter-step';
+const STORAGE_QC_COLOR = 'bgt:thing-counter:quick-counter-color';
 
 function loadData() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { games: [] }; }
@@ -119,8 +122,13 @@ function renderSelector() {
 function selectGame(id) {
     selectedGameId = id || null;
     nodeEditActive = null;
-    if (selectedGameId) localStorage.setItem(STORAGE_SELECTED, selectedGameId);
-    else localStorage.removeItem(STORAGE_SELECTED);
+    if (selectedGameId) {
+        localStorage.setItem(STORAGE_SELECTED, selectedGameId);
+        qcReset(); // selecting a game = intentional navigation → reset QC
+        document.getElementById('quickCounterModal').classList.remove('open');
+    } else {
+        localStorage.removeItem(STORAGE_SELECTED);
+    }
     updateGameActionButtons(loadData());
     updateSortBtn();
     renderMain();
@@ -264,9 +272,15 @@ function renderMain() {
 
     if (!selectedGameId) {
         const data = loadData();
-        content.innerHTML = data.games.length === 0
-            ? `<div class="empty-state"><div class="big">🎮</div>No games yet.<br>Hit <strong>+ Game</strong> to get started.</div>`
-            : `<div class="empty-state">Select a game above.</div>`;
+        const msg = data.games.length === 0
+            ? `<div class="big">🎮</div>No games yet.<br>Hit <strong>+ Game</strong> to get started.`
+            : `Select a game above.`;
+        content.innerHTML = `
+            <div class="empty-state">${msg}</div>
+            <div class="qc-entry">
+                <button class="qc-entry-btn" onclick="openQuickCounter()">⚡ Quick Counter</button>
+            </div>
+        `;
         content.classList.remove('edit-mode');
         return;
     }
@@ -1114,6 +1128,128 @@ function escHtml(str) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+
+// ═══════════════════════════════════════════════
+// Quick Counter
+// ═══════════════════════════════════════════════
+
+function qcLoad() {
+    return {
+        val:   parseFloat(localStorage.getItem(STORAGE_QC_VAL))  || 0,
+        step:  parseFloat(localStorage.getItem(STORAGE_QC_STEP)) || 1,
+        color: localStorage.getItem(STORAGE_QC_COLOR)            || qcRandomColor(),
+    };
+}
+
+function qcSave(val, step, color) {
+    localStorage.setItem(STORAGE_QC_VAL,   val);
+    localStorage.setItem(STORAGE_QC_STEP,  step);
+    localStorage.setItem(STORAGE_QC_COLOR, color);
+}
+
+function qcReset() {
+    localStorage.removeItem(STORAGE_QC_VAL);
+    localStorage.removeItem(STORAGE_QC_STEP);
+    localStorage.removeItem(STORAGE_QC_COLOR);
+}
+
+function qcRandomColor() {
+    return SWATCHES[Math.floor(Math.random() * SWATCHES.length)].color;
+}
+
+function openQuickCounter() {
+    const { val, step, color } = qcLoad();
+
+    // Populate modal
+    document.getElementById('qcTitle').style.color = color;
+    document.getElementById('qcTitle').style.textShadow = `0 0 16px ${color}80`;
+    updateQcDisplay(val, step, color);
+
+    document.getElementById('quickCounterModal').classList.add('open');
+}
+
+function updateQcDisplay(val, step, color) {
+    const display = document.getElementById('qcValueDisplay');
+    display.textContent = val;
+    display.style.color = color;
+    display.style.textShadow = `0 0 20px ${color}80`;
+
+    document.getElementById('qcStepDisplay').textContent = step;
+    document.getElementById('qcStepInput').value = step;
+    document.getElementById('qcValueInput').value = val;
+
+    // Update button labels
+    document.getElementById('qcMinus1').textContent    = '−1';
+    document.getElementById('qcPlus1').textContent     = '+1';
+    document.getElementById('qcMinusStep').textContent = `−${step}`;
+    document.getElementById('qcPlusStep').textContent  = `+${step}`;
+
+    // Apply color to dominant (+) buttons
+    ['qcPlus1', 'qcPlusStep'].forEach(id => {
+        const btn = document.getElementById(id);
+        btn.style.color       = color;
+        btn.style.borderColor = color;
+    });
+}
+
+function qcStep(direction, useOne) {
+    const { val, step, color } = qcLoad();
+    const amt    = useOne ? 1 : step;
+    const newVal = Math.max(0, val + direction * amt);
+    qcSave(newVal, step, color);
+    updateQcDisplay(newVal, step, color);
+}
+
+function activateQcValueInput() {
+    document.getElementById('qcValueDisplay').classList.add('editing');
+    const input = document.getElementById('qcValueInput');
+    input.focus();
+    input.select();
+}
+
+function onQcValueInput() {
+    const raw = parseFloat(document.getElementById('qcValueInput').value);
+    if (isNaN(raw)) return;
+    const val = Math.max(0, raw);
+    const { step, color } = qcLoad();
+    qcSave(val, step, color);
+    updateQcDisplay(val, step, color);
+}
+
+function onQcValueBlur() {
+    document.getElementById('qcValueDisplay').classList.remove('editing');
+}
+
+function activateQcStepInput() {
+    document.getElementById('qcStepDisplay').classList.add('editing');
+    const input = document.getElementById('qcStepInput');
+    input.focus();
+    input.select();
+}
+
+function onQcStepInput() {
+    const raw = parseFloat(document.getElementById('qcStepInput').value);
+    if (isNaN(raw) || raw < 1) return;
+    const { val, color } = qcLoad();
+    qcSave(val, raw, color);
+    updateQcDisplay(val, raw, color);
+}
+
+function onQcStepBlur() {
+    document.getElementById('qcStepDisplay').classList.remove('editing');
+}
+
+function qcResetValue() {
+    const { step, color } = qcLoad();
+    qcSave(0, step, color);
+    updateQcDisplay(0, step, color);
+}
+
+function closeQuickCounter() {
+    // X = intentional close → wipe state (fresh next time)
+    qcReset();
+    document.getElementById('quickCounterModal').classList.remove('open');
 }
 
 // ═══════════════════════════════════════════════

@@ -1,3 +1,5 @@
+<!-- XpTracker/index.html -->
+<!-- Shell: loads shared theme/header globals, then boots the tool via js/main.js (module). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -134,7 +136,12 @@
 <script src="../common/header.js"></script>
 <script>
     initHeader('XP Tracker');
-    initTheme(redrawCharts);
+    // redrawCharts is assigned by main.js before initTheme fires its callback —
+    // but main.js is a module (deferred), so we pass a wrapper that calls the
+    // window-level function set by main.js at runtime.
+    initTheme(() => {
+        if (window.redrawCharts) window.redrawCharts();
+    });
 
     // ── Escape key dismissal ──
     document.addEventListener('keydown', e => {
@@ -146,6 +153,6 @@
         if (e.target === this) cancelReset();
     });
 </script>
-<script src="script.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

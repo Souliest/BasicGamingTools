@@ -47,13 +47,14 @@
   box-shadow: var(--glow);
 }
 
-/* ── Auth popover ── */
+/* ── Auth popover ──
+   top/right are set dynamically by _positionPopover() in auth-ui.js
+   so the popover is always anchored to the 👤 button regardless of
+   header height or page layout. */
 
 .auth-popover {
   display: none;
   position: fixed;
-  top: 52px;
-  right: 12px;
   z-index: 300;
   background: var(--panel);
   border: 1px solid var(--border);

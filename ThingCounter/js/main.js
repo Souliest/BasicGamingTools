@@ -12,7 +12,6 @@ import {
     refreshCounterCard,
     updateSortBtn,
     updateGameActionButtons,
-    currentSortOrder,
 } from './render.js';
 import {
     openFocusModal,
@@ -112,7 +111,8 @@ async function renderSelector() {
     if (selectedGameId && data.games.find(g => g.id === selectedGameId)) {
         sel.value = selectedGameId;
     }
-    updateGameActionButtons(selectedGameId);
+    const hasGame = !!selectedGameId && !!data.games.find(g => g.id === selectedGameId);
+    updateGameActionButtons(hasGame);
 }
 
 async function selectGame(id) {
@@ -128,20 +128,27 @@ async function selectGame(id) {
         localStorage.removeItem(STORAGE_SELECTED);
     }
 
-    updateGameActionButtons(selectedGameId);
-    updateSortBtn(selectedGameId);
+    const data = await loadData();
+    const hasGame = !!selectedGameId && !!data.games.find(g => g.id === selectedGameId);
+    updateGameActionButtons(hasGame);
+
+    const game = data.games.find(g => g.id === selectedGameId) || null;
+    updateSortBtn(game);
 
     if (!selectedGameId) {
-        doRenderMain();
+        doRenderMain(data);
         return;
     }
 
     // Check for collision before rendering
-    const {game, collision} = await loadGame(selectedGameId);
+    const {game: loadedGame, collision} = await loadGame(selectedGameId);
     if (collision) {
-        showCollisionModal(selectedGameId, game.name, collision, () => doRenderMain());
+        showCollisionModal(selectedGameId, loadedGame.name, collision, async () => {
+            const fresh = await loadData();
+            doRenderMain(fresh);
+        });
     } else {
-        doRenderMain();
+        doRenderMain(data);
     }
 }
 
@@ -275,7 +282,7 @@ async function counterStep(nodeId, direction) {
     await saveData(data);
 
     refreshCounterCard(nodeId, node, nodeEditActive, callbacks);
-    syncFocusIfOpen(nodeId);
+    await syncFocusIfOpen(nodeId);
 }
 
 async function resetNodeValue(nodeId) {
@@ -287,7 +294,7 @@ async function resetNodeValue(nodeId) {
     node.value = initialValue(node);
     await saveData(data);
     refreshCounterCard(nodeId, node, nodeEditActive, callbacks);
-    syncFocusIfOpen(nodeId);
+    await syncFocusIfOpen(nodeId);
 }
 
 async function resetNodeStep(nodeId) {
@@ -299,7 +306,7 @@ async function resetNodeStep(nodeId) {
     node.step = 1;
     await saveData(data);
     refreshCounterCard(nodeId, node, nodeEditActive, callbacks);
-    syncFocusIfOpen(nodeId);
+    await syncFocusIfOpen(nodeId);
 }
 
 // ═══════════════════════════════════════════════
@@ -357,16 +364,17 @@ async function cycleSortOrder() {
     const next = {null: 'asc', asc: 'desc', desc: null};
     game.sortOrder = next[game.sortOrder || 'null'] || null;
     await saveData(data);
-    updateSortBtn(selectedGameId);
-    doRenderMain();
+    updateSortBtn(game);
+    doRenderMain(data);
 }
 
 // ═══════════════════════════════════════════════
 // Render orchestration
+// data is always passed in to avoid a redundant loadData call
 // ═══════════════════════════════════════════════
 
-function doRenderMain() {
-    renderMain(selectedGameId, editMode, nodeEditActive, collapsedBranches, callbacks);
+function doRenderMain(data) {
+    renderMain(selectedGameId, editMode, nodeEditActive, collapsedBranches, callbacks, data);
 }
 
 // ── After-save / after-delete callbacks ──
@@ -377,7 +385,8 @@ async function afterGameSaved(savedId) {
     localStorage.setItem(STORAGE_SELECTED, savedId);
     await renderSelector();
     document.getElementById('gameSelect').value = savedId;
-    doRenderMain();
+    const data = await loadData();
+    doRenderMain(data);
 }
 
 async function afterGameDeleted(deletedId, deletedType) {
@@ -390,11 +399,13 @@ async function afterGameDeleted(deletedId, deletedType) {
         }
     }
     await renderSelector();
-    doRenderMain();
+    const data = await loadData();
+    doRenderMain(data);
 }
 
-function afterNodeSaved() {
-    doRenderMain();
+async function afterNodeSaved() {
+    const data = await loadData();
+    doRenderMain(data);
 }
 
 // ═══════════════════════════════════════════════
@@ -458,5 +469,5 @@ window.qcResetValue = qcResetValue;
     selectedGameId = restoreSelectedGame(data);
     setFocusGameId(selectedGameId);
     await renderSelector();
-    doRenderMain();
+    doRenderMain(data);
 })();

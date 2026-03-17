@@ -74,7 +74,6 @@ function _maybeShowNudge() {
     const btn = document.getElementById('authBtn');
     if (!btn) return;
     btn.classList.add('nudge');
-    // Dismiss on any interaction
     const dismiss = () => {
         btn.classList.remove('nudge');
         localStorage.setItem(NUDGE_KEY, '1');
@@ -97,8 +96,18 @@ export function toggleAuthPopover(event) {
         popover.classList.remove('open');
         return;
     }
+    _positionPopover();
     _renderPopover();
     popover.classList.add('open');
+}
+
+function _positionPopover() {
+    const btn = document.getElementById('authBtn');
+    const popover = document.getElementById('authPopover');
+    if (!btn || !popover) return;
+    const rect = btn.getBoundingClientRect();
+    popover.style.top = (rect.bottom + 8) + 'px';
+    popover.style.right = (window.innerWidth - rect.right) + 'px';
 }
 
 function _renderPopover() {
@@ -298,7 +307,6 @@ function _renderMode() {
         });
     }
 
-    // Focus the email field
     setTimeout(() => {
         const el = document.getElementById('authEmail');
         if (el) el.focus();
@@ -317,7 +325,6 @@ async function _handleLogin() {
     _setSubmitting(true);
     try {
         await signIn(email, password);
-        // closeAuthOverlay called by onAuthStateChange handler
     } catch (err) {
         _showError(_friendlyError(err.message));
     } finally {
@@ -344,7 +351,6 @@ async function _handleRegister() {
     _setSubmitting(true);
     try {
         await signUp(email, password);
-        // Auto-signed in because email confirmation is disabled
     } catch (err) {
         _showError(_friendlyError(err.message));
     } finally {
@@ -411,7 +417,6 @@ function _escHtml(str) {
 // ── DOM injection ──
 
 function _injectOverlay() {
-    // Auth overlay
     const overlay = document.createElement('div');
     overlay.id = 'authOverlay';
     overlay.className = 'auth-overlay';
@@ -426,50 +431,39 @@ function _injectOverlay() {
     `;
     document.body.appendChild(overlay);
 
-    // Auth popover (attached to header 👤 button)
     const popover = document.createElement('div');
     popover.id = 'authPopover';
     popover.className = 'auth-popover';
     document.body.appendChild(popover);
 
-    // Wire close button and backdrop
     document.getElementById('authCloseBtn').addEventListener('click', closeAuthOverlay);
     overlay.addEventListener('click', e => {
         if (e.target === overlay) closeAuthOverlay();
     });
 
-    // Wire 👤 button (injected by header.js)
-    // Use event delegation — button may not exist yet at this exact moment
+    // Wire 👤 button via event delegation
     document.addEventListener('click', e => {
         if (e.target.id === 'authBtn' || e.target.closest('#authBtn')) {
             toggleAuthPopover(e);
         }
     });
 
-    // Escape key
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
             closeAuthOverlay();
-            const popover = document.getElementById('authPopover');
-            if (popover) popover.classList.remove('open');
+            const pop = document.getElementById('authPopover');
+            if (pop) pop.classList.remove('open');
         }
     });
 }
 
 function _injectStyles() {
+    // Derive auth.css path from this module's own URL — works regardless of
+    // which tool subdirectory is loading it.
+    const moduleUrl = new URL(import.meta.url);
+    const cssUrl = new URL('auth.css', moduleUrl).href;
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = _resolveAuthCssPath();
+    link.href = cssUrl;
     document.head.appendChild(link);
-}
-
-function _resolveAuthCssPath() {
-    // Works from both root (index.html) and tool subdirectories
-    const scripts = document.querySelectorAll('script[type="module"]');
-    for (const s of scripts) {
-        if (s.src && s.src.includes('/js/main.js')) {
-            return '../common/auth.css';
-        }
-    }
-    return 'common/auth.css';
 }

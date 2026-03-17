@@ -1,28 +1,26 @@
 // ThingCounter/js/render.js
 // Renders the game tree, counter cards, branch rows, and selector/action bar visibility.
 // Imports callbacks from main.js at call time via parameters to avoid circular dependencies.
+// Does NOT call loadData() — all data is passed in as parameters.
 
 // ═══════════════════════════════════════════════
 // Render — tree, cards, and UI state
 // ═══════════════════════════════════════════════
 
-import {loadData} from './storage.js';
 import {DEFAULT_COLOR} from './swatches.js';
 import {fillPercent, escHtml} from './nodes.js';
 
-// ── Sort order (reads from game data, no state here) ──
+// ── Sort order ──
+// Reads sortOrder from the game object passed in — no loadData call needed.
 
-export function currentSortOrder(selectedGameId) {
-    if (!selectedGameId) return null;
-    const data = loadData();
-    const game = data.games.find(g => g.id === selectedGameId);
+export function currentSortOrder(game) {
     return game ? (game.sortOrder || null) : null;
 }
 
-export function updateSortBtn(selectedGameId) {
+export function updateSortBtn(game) {
     const btn = document.getElementById('sortBtn');
     if (!btn) return;
-    const order = currentSortOrder(selectedGameId);
+    const order = currentSortOrder(game);
     if (order === 'asc') {
         btn.textContent = 'A↑';
         btn.classList.add('active');
@@ -38,25 +36,26 @@ export function updateSortBtn(selectedGameId) {
     }
 }
 
-export function updateGameActionButtons(selectedGameId) {
-    const data = loadData();
-    const hasGame = !!selectedGameId && !!data.games.find(g => g.id === selectedGameId);
-    document.getElementById('editGameBtn').style.display = hasGame ? '' : 'none';
-    document.getElementById('treeActionBar').style.display = hasGame ? '' : 'none';
+export function updateGameActionButtons(hasGame) {
+    const editBtn = document.getElementById('editGameBtn');
+    const actionBar = document.getElementById('treeActionBar');
+    if (editBtn) editBtn.style.display = hasGame ? '' : 'none';
+    if (actionBar) actionBar.style.display = hasGame ? '' : 'none';
 }
 
 // ── Main render ──
+// data: the full { games: [...] } object, already loaded by main.js
 // callbacks: { onOpenQuickCounter, onOpenAddCounter, onOpenAddBranch, onCounterStep,
 //              onResetNodeValue, onResetNodeStep, onOpenEditCounter, onOpenConfirmDeleteNode,
 //              onOpenEditBranch, onToggleBranch, onActivateNodeEdit, onOpenFocusModal,
 //              onAttachLongPress }
 
-export function renderMain(selectedGameId, editMode, nodeEditActive, collapsedBranches, callbacks) {
+export function renderMain(selectedGameId, editMode, nodeEditActive, collapsedBranches, callbacks, data) {
     const content = document.getElementById('mainContent');
-    updateSortBtn(selectedGameId);
 
     if (!selectedGameId) {
-        const data = loadData();
+        const game = null;
+        updateSortBtn(game);
         const msg = data.games.length === 0
             ? `<div class="big">🎮</div>No games yet.<br>Hit <strong>+ Game</strong> to get started.`
             : `Select a game above.`;
@@ -70,8 +69,9 @@ export function renderMain(selectedGameId, editMode, nodeEditActive, collapsedBr
         return;
     }
 
-    const data = loadData();
     const game = data.games.find(g => g.id === selectedGameId);
+    updateSortBtn(game);
+
     if (!game) {
         content.innerHTML = '';
         return;
@@ -93,7 +93,7 @@ export function renderMain(selectedGameId, editMode, nodeEditActive, collapsedBr
     content.classList.toggle('edit-mode', editMode);
 
     const treeRoot = document.getElementById('treeRoot');
-    if (hasNodes) renderNodes(game.nodes, treeRoot, selectedGameId, editMode, nodeEditActive, collapsedBranches, callbacks);
+    if (hasNodes) renderNodes(game.nodes, treeRoot, game, editMode, nodeEditActive, collapsedBranches, callbacks);
 
     const ghost = document.createElement('button');
     ghost.className = 'add-ghost-btn';
@@ -102,19 +102,19 @@ export function renderMain(selectedGameId, editMode, nodeEditActive, collapsedBr
     treeRoot.appendChild(ghost);
 }
 
-function renderNodes(nodes, container, selectedGameId, editMode, nodeEditActive, collapsedBranches, callbacks) {
-    const order = currentSortOrder(selectedGameId);
+function renderNodes(nodes, container, game, editMode, nodeEditActive, collapsedBranches, callbacks) {
+    const order = currentSortOrder(game);
     const sorted = order
         ? [...nodes].sort((a, b) => order === 'asc'
             ? a.name.localeCompare(b.name)
             : b.name.localeCompare(a.name))
         : nodes;
     sorted.forEach(node => container.appendChild(
-        renderNode(node, selectedGameId, editMode, nodeEditActive, collapsedBranches, callbacks)
+        renderNode(node, game, editMode, nodeEditActive, collapsedBranches, callbacks)
     ));
 }
 
-function renderNode(node, selectedGameId, editMode, nodeEditActive, collapsedBranches, callbacks) {
+function renderNode(node, game, editMode, nodeEditActive, collapsedBranches, callbacks) {
     const wrapper = document.createElement('div');
     wrapper.className = 'tree-node';
     wrapper.dataset.id = node.id;
@@ -125,7 +125,7 @@ function renderNode(node, selectedGameId, editMode, nodeEditActive, collapsedBra
         childContainer.className = 'tree-node-children' + (collapsedBranches.has(node.id) ? ' collapsed' : '');
         childContainer.id = 'children-' + node.id;
         if (node.children && node.children.length > 0) {
-            renderNodes(node.children, childContainer, selectedGameId, editMode, nodeEditActive, collapsedBranches, callbacks);
+            renderNodes(node.children, childContainer, game, editMode, nodeEditActive, collapsedBranches, callbacks);
         }
         const ghost = document.createElement('button');
         ghost.className = 'add-ghost-btn';

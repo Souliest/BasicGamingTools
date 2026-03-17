@@ -8,6 +8,7 @@
 import {loadData, saveData} from './storage.js';
 import {updateAll} from './render.js';
 import {redrawCharts} from './charts.js';
+import {initAuth} from '../../common/auth-ui.js';
 
 // ── Module-level state ──
 let gains = [];
@@ -16,14 +17,6 @@ let startTime = null;
 // ── Expose redrawCharts globally so initTheme(redrawCharts) in index.html works
 //    (initTheme is a non-module global loaded before this script)
 window.redrawCharts = () => redrawCharts(gains, startTime);
-
-// ── Init: load persisted data ──
-(function init() {
-    const saved = loadData();
-    gains = saved.gains;
-    startTime = saved.startTime;
-    updateAll(gains, startTime);
-})();
 
 // ── Add XP ──
 export function addXP() {
@@ -72,3 +65,12 @@ window.cancelReset = cancelReset;
 
 // Resize redraws
 window.addEventListener('resize', () => redrawCharts(gains, startTime));
+
+// ── Init ──
+(async function init() {
+    await initAuth();
+    const saved = loadData();
+    gains = saved.gains;
+    startTime = saved.startTime;
+    updateAll(gains, startTime);
+})();

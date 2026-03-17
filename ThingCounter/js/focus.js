@@ -24,8 +24,8 @@ export function getFocusNodeId() {
 
 // ── Focus modal ──
 
-export function openFocusModal(nodeId, selectedGameId) {
-    const data = loadData();
+export async function openFocusModal(nodeId, selectedGameId) {
+    const data = await loadData();
     const game = data.games.find(g => g.id === selectedGameId);
     if (!game) return;
     const node = findNode(game.nodes, nodeId);
@@ -34,12 +34,12 @@ export function openFocusModal(nodeId, selectedGameId) {
     focusNodeId = nodeId;
     _selectedGameId = selectedGameId;
     document.getElementById('focusName').textContent = node.name;
-    updateFocusDisplay();
+    await updateFocusDisplay();
     document.getElementById('focusModal').classList.add('open');
 }
 
-export function updateFocusDisplay() {
-    const data = loadData();
+export async function updateFocusDisplay() {
+    const data = await loadData();
     const game = data.games.find(g => g.id === _selectedGameId);
     if (!game) return;
     const node = findNode(game.nodes, focusNodeId);
@@ -106,17 +106,17 @@ export function activateFocusValueInput() {
     input.select();
 }
 
-export function onFocusValueInput(onRefreshCard) {
+export async function onFocusValueInput(onRefreshCard) {
     const val = parseInt(document.getElementById('focusValueInput').value);
     if (isNaN(val)) return;
-    const data = loadData();
+    const data = await loadData();
     const game = data.games.find(g => g.id === _selectedGameId);
     if (!game) return;
     const node = findNode(game.nodes, focusNodeId);
     if (!node) return;
     node.value = clampValue(node, val);
-    saveData(data);
-    updateFocusDisplay();
+    await saveData(data);
+    await updateFocusDisplay();
     onRefreshCard(focusNodeId, node);
 }
 
@@ -131,51 +131,51 @@ export function activateFocusStepInput() {
     input.select();
 }
 
-export function onFocusStepInput() {
+export async function onFocusStepInput() {
     const val = parseFloat(document.getElementById('focusStepInput').value);
     if (isNaN(val) || val < 1) return;
-    const data = loadData();
+    const data = await loadData();
     const game = data.games.find(g => g.id === _selectedGameId);
     if (!game) return;
     const node = findNode(game.nodes, focusNodeId);
     if (!node) return;
     node.step = val;
-    saveData(data);
-    updateFocusDisplay();
+    await saveData(data);
+    await updateFocusDisplay();
 }
 
 export function onFocusStepBlur() {
     document.getElementById('focusStepDisplay').classList.remove('editing');
 }
 
-export function focusStep(direction, useOne, onRefreshCard) {
-    const data = loadData();
+export async function focusStep(direction, useOne, onRefreshCard) {
+    const data = await loadData();
     const game = data.games.find(g => g.id === _selectedGameId);
     if (!game) return;
     const node = findNode(game.nodes, focusNodeId);
     if (!node) return;
     const stepAmt = useOne ? 1 : (node.step || 1);
     node.value = clampValue(node, node.value + direction * stepAmt);
-    saveData(data);
-    updateFocusDisplay();
+    await saveData(data);
+    await updateFocusDisplay();
     onRefreshCard(focusNodeId, node);
 }
 
-export function focusResetValue(onRefreshCard) {
-    const data = loadData();
+export async function focusResetValue(onRefreshCard) {
+    const data = await loadData();
     const game = data.games.find(g => g.id === _selectedGameId);
     if (!game) return;
     const node = findNode(game.nodes, focusNodeId);
     if (!node) return;
     node.value = initialValue(node);
-    saveData(data);
-    updateFocusDisplay();
+    await saveData(data);
+    await updateFocusDisplay();
     onRefreshCard(focusNodeId, node);
 }
 
 // Sync focus display if the given node is currently open — called after external value changes.
-export function syncFocusIfOpen(nodeId) {
-    if (focusNodeId === nodeId) updateFocusDisplay();
+export async function syncFocusIfOpen(nodeId) {
+    if (focusNodeId === nodeId) await updateFocusDisplay();
 }
 
 // ── Quick Counter ──

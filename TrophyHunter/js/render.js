@@ -37,7 +37,7 @@ function trophyIcon(tier, earned, size = 16) {
         return `<svg class="trophy-icon" width="${size}" height="${size}" viewBox="0 0 16 20"
             aria-hidden="true" opacity="${opacity}">
             <path d="${PLATINUM_CUP_PATH}" fill="${color}"/>
-            <path d="${PLATINUM_STAR_PATH}" fill="rgba(0,0,0,0.35)"/>
+            <path d="${PLATINUM_STAR_PATH}" fill="#1a1a2e"/>
         </svg>`;
     }
 
@@ -385,7 +385,7 @@ export function renderGroupHeader(group, groupStats) {
         </div>
         <div class="th-group-header-stats">
             <div class="th-stats-chips-row">
-                ${renderTierChips(groupStats.tierEarned, groupStats.tierTotal, 13, groupStats.hasPlatinum, groupStats.platinumEarned, completionIndicator)}
+                ${renderTierChips(groupStats.tierEarned, groupStats.tierTotal, 13, false, false, completionIndicator)}
                 <span class="th-stat-fraction">${groupStats.earned}/${groupStats.total}</span>
             </div>
             <div class="th-stats-bar-row">

@@ -15,16 +15,23 @@ const TIERS = {
     bronze: {label: 'Bronze', color: '#c4713a', order: 3},
 };
 
-// SVG trophy path — used for tier badges.
-// A simple trophy silhouette, sized to ~16x16.
-const TROPHY_SVG_PATH = 'M12 2H4v6c0 2.2 1.4 4 3.3 4.7L7 14H6v2h4v-2H9l-.3-1.3C10.6 12 12 10.2 12 8V2zM2 4H0v2c0 1.1.7 2 1.7 2.4V4H2zm12 0h1.7v4.4C16.7 8 17 7.1 17 6V4h-1.3-1.7z';
+// ── Trophy SVG paths ──
+// Standard trophy (used for gold/silver/bronze tier badges).
+// Symmetrical handles — both sides match.
+const TROPHY_SVG_PATH = 'M12 2H4v6c0 2.2 1.4 4 3.3 4.7L7 14H6v2h4v-2H9l-.3-1.3C10.6 12 12 10.2 12 8V2zM2 4H0v2c0 1.1.7 2 1.7 2.4V4H2zm12 0v4.4C15.3 8 16 7.1 16 6V4h-2z';
+
+// Platinum trophy — slightly more ornate crown shape to distinguish it.
+const PLATINUM_SVG_PATH = 'M8 1L5.5 5H2l2.3 2.8L3 12h5v2H7v2h2v-2h2v2h2v-2h-1v-2h5l-1.3-4.2L17 5h-3.5L11 1H8zM2 4H0v2c0 1.1.7 2 1.7 2.4V4H2zm12 0v4.4C15.3 8 16 7.1 16 6V4h-2z';
 
 function trophyIcon(tier, earned, size = 16) {
     const cfg = TIERS[tier] || TIERS.bronze;
-    const color = earned ? cfg.color : 'var(--muted)';
+    // Always show tier color — full opacity when earned, dimmed when not
+    const color = earned ? cfg.color : cfg.color;
+    const opacity = earned ? '1' : '0.25';
+    const path = tier === 'platinum' ? PLATINUM_SVG_PATH : TROPHY_SVG_PATH;
     return `<svg class="trophy-icon" width="${size}" height="${size}" viewBox="0 0 16 16"
-        aria-hidden="true" fill="${color}">
-        <path d="${TROPHY_SVG_PATH}"/>
+        aria-hidden="true" fill="${color}" opacity="${opacity}">
+        <path d="${path}"/>
     </svg>`;
 }
 
@@ -43,15 +50,16 @@ export function computeStats(groups, trophyState) {
             if (state.orphaned) continue;
 
             const type = trophy.type || 'bronze';
+
+            // Platinum IS counted in total, fraction, and progress bar
+            total++;
+            tierTotal[type] = (tierTotal[type] || 0) + 1;
+
             if (type === 'platinum') {
                 hasPlatinum = true;
                 platinumEarned = !!state.earned;
-                // Platinum not counted in progress bar
-                continue;
             }
 
-            total++;
-            tierTotal[type] = (tierTotal[type] || 0) + 1;
             if (state.earned) {
                 earned++;
                 tierEarned[type] = (tierEarned[type] || 0) + 1;
@@ -70,18 +78,25 @@ export function computeStats(groups, trophyState) {
 
 export function computeGroupStats(group, trophyState) {
     let total = 0, earned = 0;
-    let tierTotal = {gold: 0, silver: 0, bronze: 0};
-    let tierEarned = {gold: 0, silver: 0, bronze: 0};
+    let tierTotal = {platinum: 0, gold: 0, silver: 0, bronze: 0};
+    let tierEarned = {platinum: 0, gold: 0, silver: 0, bronze: 0};
     let isComplete = false;
-    let hasNonPlatinum = false;
+    let hasPlatinum = false;
+    let platinumEarned = false;
 
     for (const trophy of group.trophies) {
         const state = trophyState[String(trophy.trophyId)] || {};
         if (state.orphaned) continue;
         const type = trophy.type || 'bronze';
-        if (type === 'platinum') continue;  // platinum not in group progress
 
-        hasNonPlatinum = true;
+        if (type === 'platinum') {
+            hasPlatinum = true;
+            platinumEarned = !!state.earned;
+            // Platinum not counted in group progress bar/fraction
+            // (it's earned by completing the group, not part of it)
+            continue;
+        }
+
         total++;
         tierTotal[type] = (tierTotal[type] || 0) + 1;
         if (state.earned) {
@@ -91,21 +106,22 @@ export function computeGroupStats(group, trophyState) {
     }
 
     const pct = total > 0 ? Math.round((earned / total) * 100) : 0;
-    isComplete = hasNonPlatinum && earned === total;
+    isComplete = total > 0 && earned === total;
 
-    return {total, earned, pct, tierTotal, tierEarned, isComplete};
+    return {total, earned, pct, tierTotal, tierEarned, isComplete, hasPlatinum, platinumEarned};
 }
 
-// ── Tier chips row (Gold / Silver / Bronze counts) ──
+// ── Tier chips row ──
+// Gold, silver, bronze — always shown with tier color, count always visible.
+// Platinum is handled separately in the header.
 
 function renderTierChips(tierEarned, tierTotal, size = 14) {
     return ['gold', 'silver', 'bronze'].map(tier => {
         const e = tierEarned[tier] || 0;
         const t = tierTotal[tier] || 0;
-        const color = t > 0 ? TIERS[tier].color : 'var(--muted)';
         return `<span class="tier-chip">
-            ${trophyIcon(tier, t > 0, size)}
-            <span class="tier-chip-count" style="color:${color}">${e}</span>
+            ${trophyIcon(tier, true, size)}
+            <span class="tier-chip-count" style="color:${TIERS[tier].color}">${e}</span>
         </span>`;
     }).join('');
 }
@@ -130,10 +146,6 @@ export function updateSelectorButtons(hasGame) {
 // ─────────────────────────────────────────────
 // renderMain
 // ─────────────────────────────────────────────
-// selectedGameId  — currently selected game id or null
-// personalData    — full { games: [...] } object
-// catalogEntry    — catalog entry for selected game, or null
-// callbacks       — interaction handlers from main.js
 
 export function renderMain(selectedGameId, personalData, catalogEntry, callbacks) {
     const content = document.getElementById('mainContent');
@@ -165,19 +177,25 @@ export function renderMain(selectedGameId, personalData, catalogEntry, callbacks
 
     const stats = computeStats(catalogEntry.groups, game.trophyState);
 
+    // If only one group, always show flat — group header would just duplicate game header
+    const isSingleGroup = catalogEntry.groups.length === 1;
+    const effectiveViewState = isSingleGroup
+        ? {...game.viewState, ungrouped: true}
+        : game.viewState;
+
     content.innerHTML = [
         renderGameHeader(game, catalogEntry, stats),
-        renderToolbar(game.viewState, callbacks),
-        renderTrophyList(game, catalogEntry, stats, callbacks),
+        renderToolbar(effectiveViewState, callbacks, isSingleGroup),
+        renderTrophyList(game, catalogEntry, stats, callbacks, effectiveViewState),
     ].join('');
 
-    // Wire game icon error handler — avoids inline onerror attribute (architecture rule)
+    // Wire game icon error handler
     const gameIcon = content.querySelector('[data-icon="gameHeader"]');
     if (gameIcon) gameIcon.addEventListener('error', () => {
         gameIcon.style.display = 'none';
     });
 
-    _wireToolbar(game, callbacks);
+    _wireToolbar(game, callbacks, isSingleGroup);
     _wireTrophyRows(game, catalogEntry, callbacks);
     _wireLongPress(game, catalogEntry, callbacks);
 }
@@ -187,21 +205,21 @@ export function renderMain(selectedGameId, personalData, catalogEntry, callbacks
 // ─────────────────────────────────────────────
 
 export function renderGameHeader(game, catalogEntry, stats) {
-    const platIndicator = stats.hasPlatinum
-        ? `${trophyIcon('platinum', stats.platinumEarned, 22)}`
+    const platIcon = stats.hasPlatinum
+        ? trophyIcon('platinum', stats.platinumEarned, 22)
         : `<span class="th-plat-check ${stats.pct === 100 ? 'earned' : ''}">✓</span>`;
 
     return `<div class="th-game-header panel" id="gameHeader">
         <div class="th-game-title-row">
             ${catalogEntry.iconUrl
         ? `<img class="th-game-icon" src="${_escHtml(catalogEntry.iconUrl)}"
-                    alt="" aria-hidden="true" data-icon="gameHeader">`
+                        alt="" aria-hidden="true" data-icon="gameHeader">`
         : ''}
             <div class="th-game-title">${_escHtml(game.name)}</div>
             <span class="th-platform-badge">${_escHtml(game.platform)}</span>
         </div>
         <div class="th-header-stats">
-            <span class="th-plat-indicator">${platIndicator}</span>
+            <span class="th-plat-indicator">${platIcon}</span>
             ${renderTierChips(stats.tierEarned, stats.tierTotal, 16)}
             <span class="th-stat-fraction">${stats.earned}/${stats.total}</span>
             ${renderProgressBar(stats.pct)}
@@ -214,7 +232,7 @@ export function renderGameHeader(game, catalogEntry, stats) {
 // renderToolbar — filter / sort / ungroup
 // ─────────────────────────────────────────────
 
-export function renderToolbar(viewState, callbacks) {
+export function renderToolbar(viewState, callbacks, isSingleGroup = false) {
     const filters = ['all', 'earned', 'unearned'];
     const sorts = [
         {value: 'psn', label: 'PSN'},
@@ -236,13 +254,8 @@ export function renderToolbar(viewState, callbacks) {
 
     const ungroupActive = viewState.ungrouped ? ' active' : '';
 
-    return `<div class="th-toolbar">
-        <select id="filterSelect" aria-label="Filter trophies">
-            ${filterOptions}
-        </select>
-        <select id="sortSelect" aria-label="Sort trophies">
-            ${sortOptions}
-        </select>
+    // Hide ungroup button when there's only one group — nothing to group/ungroup
+    const ungroupBtn = isSingleGroup ? '' : `
         <button class="btn btn-ghost th-ungroup-btn${ungroupActive}"
             id="ungroupBtn" title="Ungroup DLC">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -250,7 +263,16 @@ export function renderToolbar(viewState, callbacks) {
                 <rect x="1" y="7" width="14" height="3" rx="1"/>
                 <rect x="1" y="12" width="14" height="3" rx="1"/>
             </svg>
-        </button>
+        </button>`;
+
+    return `<div class="th-toolbar">
+        <select id="filterSelect" aria-label="Filter trophies">
+            ${filterOptions}
+        </select>
+        <select id="sortSelect" aria-label="Sort trophies">
+            ${sortOptions}
+        </select>
+        ${ungroupBtn}
     </div>`;
 }
 
@@ -258,28 +280,27 @@ export function renderToolbar(viewState, callbacks) {
 // renderTrophyList — groups or flat list
 // ─────────────────────────────────────────────
 
-function renderTrophyList(game, catalogEntry, stats, callbacks) {
-    if (game.viewState.ungrouped) {
-        return renderFlatList(game, catalogEntry, callbacks);
+function renderTrophyList(game, catalogEntry, stats, callbacks, effectiveViewState) {
+    if (effectiveViewState.ungrouped) {
+        return renderFlatList(game, catalogEntry, callbacks, effectiveViewState);
     }
-    return renderGroupedList(game, catalogEntry, callbacks);
+    return renderGroupedList(game, catalogEntry, callbacks, effectiveViewState);
 }
 
-function renderGroupedList(game, catalogEntry, callbacks) {
+function renderGroupedList(game, catalogEntry, callbacks, viewState) {
     return catalogEntry.groups.map(group => {
         const groupStats = computeGroupStats(group, game.trophyState);
-        return renderGroup(group, game, groupStats, callbacks);
+        return renderGroup(group, game, groupStats, callbacks, viewState);
     }).join('');
 }
 
-function renderFlatList(game, catalogEntry, callbacks) {
-    // Merge all trophies from all groups into one flat array
+function renderFlatList(game, catalogEntry, callbacks, viewState) {
     const allTrophies = catalogEntry.groups.flatMap(g => g.trophies);
-    const sorted = sortTrophies(allTrophies, game.viewState.sort);
-    const filtered = filterTrophies(sorted, game.trophyState, game.viewState.filter);
+    const sorted = sortTrophies(allTrophies, viewState.sort);
+    const filtered = filterTrophies(sorted, game.trophyState, viewState.filter);
 
-    if (filtered.length === 0 && game.viewState.filter !== 'all') {
-        return renderEmptyFilter(game.viewState.filter);
+    if (filtered.length === 0 && viewState.filter !== 'all') {
+        return renderEmptyFilter(viewState.filter);
     }
 
     return `<div class="th-flat-list">
@@ -291,22 +312,22 @@ function renderFlatList(game, catalogEntry, callbacks) {
 // renderGroup — one DLC section
 // ─────────────────────────────────────────────
 
-export function renderGroup(group, game, groupStats, callbacks) {
-    const sorted = sortTrophies(group.trophies, game.viewState.sort);
-    const filtered = filterTrophies(sorted, game.trophyState, game.viewState.filter);
+export function renderGroup(group, game, groupStats, callbacks, viewState) {
+    const vs = viewState || game.viewState;
+    const sorted = sortTrophies(group.trophies, vs.sort);
+    const filtered = filterTrophies(sorted, game.trophyState, vs.filter);
 
-    // Pinned trophies float to top (within filtered set, unearned only)
     const pinned = filtered.filter(t => game.trophyState[String(t.trophyId)]?.pinned);
     const unpinned = filtered.filter(t => !game.trophyState[String(t.trophyId)]?.pinned);
     const ordered = [...pinned, ...unpinned];
 
-    const isEmpty = ordered.length === 0 && game.viewState.filter !== 'all';
+    const isEmpty = ordered.length === 0 && vs.filter !== 'all';
 
     return `<div class="th-group" data-group-id="${_escHtml(group.groupId)}">
         ${renderGroupHeader(group, groupStats)}
-        <div class="th-group-body" id="group-body-${_escHtml(group.groupId)}">
+        <div class="th-group-children" id="group-body-${_escHtml(group.groupId)}">
             ${isEmpty
-        ? `<div class="th-empty-filter">No ${game.viewState.filter} trophies in this group.</div>`
+        ? `<div class="th-empty-filter">No ${vs.filter} trophies in this group.</div>`
         : ordered.map(t => renderTrophyRow(t, game.trophyState, callbacks)).join('')
     }
         </div>
@@ -318,7 +339,11 @@ export function renderGroup(group, game, groupStats, callbacks) {
 // ─────────────────────────────────────────────
 
 export function renderGroupHeader(group, groupStats) {
-    const checkClass = groupStats.isComplete ? 'th-group-check complete' : 'th-group-check';
+    // If this group contains the platinum, use the platinum icon instead of checkmark
+    const completionIndicator = groupStats.hasPlatinum
+        ? trophyIcon('platinum', groupStats.platinumEarned, 14)
+        : `<span class="${groupStats.isComplete ? 'th-group-check complete' : 'th-group-check'}"
+                title="${groupStats.isComplete ? 'Complete' : 'Incomplete'}">✓</span>`;
 
     return `<div class="th-group-header" data-group-id="${_escHtml(group.groupId)}">
         <div class="th-group-header-top">
@@ -326,8 +351,8 @@ export function renderGroupHeader(group, groupStats) {
             <span class="th-group-name">${_escHtml(group.name)}</span>
         </div>
         <div class="th-group-header-stats">
-            <span class="${checkClass}" title="${groupStats.isComplete ? 'Complete' : 'Incomplete'}">✓</span>
-            ${renderTierChips(groupStats.tierEarned, groupStats.tierTotal, 14)}
+            <span class="th-group-completion">${completionIndicator}</span>
+            ${renderTierChips(groupStats.tierEarned, groupStats.tierTotal, 13)}
             <span class="th-stat-fraction">${groupStats.earned}/${groupStats.total}</span>
             ${renderProgressBar(groupStats.pct)}
             <span class="th-stat-pct">${groupStats.pct}%</span>
@@ -345,10 +370,10 @@ export function renderTrophyRow(trophy, trophyState, callbacks) {
     const earned = !!state.earned;
     const pinned = !!state.pinned;
     const orphaned = !!state.orphaned;
-    const dimmed = !!trophy._dimmed; // set by filterTrophies supersort
+    const dimmed = !!trophy._dimmed;
 
     const cfg = TIERS[trophy.type] || TIERS.bronze;
-    const tierColor = earned ? cfg.color : 'var(--muted)';
+    const tierColor = cfg.color;
 
     const rowClass = [
         'th-trophy-row',
@@ -367,9 +392,9 @@ export function renderTrophyRow(trophy, trophyState, callbacks) {
         <div class="th-trophy-body">
             <div class="th-trophy-name-row">
                 <span class="th-trophy-name">${_escHtml(trophy.name)}</span>
-                <span class="th-tier-badge" style="color:${tierColor}">
+                <span class="th-tier-badge">
                     ${trophyIcon(trophy.type, earned, 14)}
-                    <span class="th-tier-label">${cfg.label.toUpperCase()}</span>
+                    <span class="th-tier-label" style="color:${tierColor}">${cfg.label.toUpperCase()}</span>
                 </span>
             </div>
             <div class="th-trophy-detail">${_escHtml(trophy.detail || '')}</div>
@@ -392,7 +417,6 @@ export function refreshTrophyRow(trophyId, trophy, trophyState, callbacks) {
     tmp.innerHTML = newHtml;
     const newEl = tmp.firstElementChild;
 
-    // Re-wire the earn button on the new element
     const earnBtn = newEl.querySelector('[data-action="earn"]');
     if (earnBtn) {
         earnBtn.addEventListener('click', e => {
@@ -412,13 +436,11 @@ export function updateGroupHeader(groupId, group, groupStats) {
     tmp.innerHTML = renderGroupHeader(group, groupStats);
     const newHeader = tmp.firstElementChild;
 
-    // Preserve collapsed state
     const body = document.getElementById(`group-body-${groupId}`);
     const isCollapsed = body && body.classList.contains('collapsed');
     const toggle = newHeader.querySelector('.th-group-toggle');
     if (toggle) toggle.textContent = isCollapsed ? '▶' : '▼';
 
-    // Re-wire toggle click
     newHeader.addEventListener('click', () => {
         if (body) body.classList.toggle('collapsed');
         const t = newHeader.querySelector('.th-group-toggle');
@@ -452,8 +474,6 @@ export function sortTrophies(trophies, sort) {
             return ao - bo;
         });
     } else {
-        // 'psn' — canonical order by trophyNum. Explicit sort guards against
-        // any upstream reordering; trophyNum is the PSN-assigned sequence index.
         arr.sort((a, b) => (a.trophyNum ?? a.trophyId) - (b.trophyNum ?? b.trophyId));
     }
     return arr;
@@ -464,7 +484,6 @@ export function filterTrophies(trophies, trophyState, filter) {
 
     const wantEarned = filter === 'earned';
 
-    // "supersort" — wanted trophies first, unwanted dimmed at bottom
     const wanted = trophies.filter(t => {
         const s = trophyState[String(t.trophyId)] || {};
         return wantEarned ? !!s.earned : !s.earned;
@@ -474,16 +493,14 @@ export function filterTrophies(trophies, trophyState, filter) {
         return wantEarned ? !s.earned : !!s.earned;
     });
 
-    // Return all trophies — wanted first, unwanted appended with a dim class
-    // The dim class is applied in renderTrophyRow based on filter context
     return [...wanted, ...unwanted.map(t => ({...t, _dimmed: true}))];
 }
 
 // ─────────────────────────────────────────────
-// Event wiring — called after renderMain sets innerHTML
+// Event wiring
 // ─────────────────────────────────────────────
 
-function _wireToolbar(game, callbacks) {
+function _wireToolbar(game, callbacks, isSingleGroup) {
     const filterSel = document.getElementById('filterSelect');
     const sortSel = document.getElementById('sortSelect');
     const ungroupBtn = document.getElementById('ungroupBtn');
@@ -498,7 +515,7 @@ function _wireToolbar(game, callbacks) {
             callbacks.onViewStateChange({...game.viewState, sort: sortSel.value});
         });
     }
-    if (ungroupBtn) {
+    if (ungroupBtn && !isSingleGroup) {
         ungroupBtn.addEventListener('click', () => {
             callbacks.onViewStateChange({
                 ...game.viewState,
@@ -507,7 +524,6 @@ function _wireToolbar(game, callbacks) {
         });
     }
 
-    // Wire group header toggles
     document.querySelectorAll('.th-group-header').forEach(header => {
         header.addEventListener('click', () => {
             const groupId = header.dataset.groupId;
@@ -537,7 +553,7 @@ function _wireLongPress(game, catalogEntry, callbacks) {
 }
 
 // ─────────────────────────────────────────────
-// Long-press helper (same pattern as ThingCounter)
+// Long-press helper
 // ─────────────────────────────────────────────
 
 function _attachLongPress(el, callback) {
@@ -554,7 +570,6 @@ function _attachLongPress(el, callback) {
             callback();
         }, 500);
     });
-
     el.addEventListener('pointermove', e => {
         if (!timer) return;
         if (Math.abs(e.clientX - startX) > THRESHOLD ||
@@ -563,7 +578,6 @@ function _attachLongPress(el, callback) {
             timer = null;
         }
     });
-
     el.addEventListener('pointerup', () => {
         if (timer) {
             clearTimeout(timer);

@@ -39,6 +39,20 @@ const LOWERCASE_WORDS = new Set([
     'at', 'by', 'in', 'of', 'on', 'to', 'up', 'as', 'is',
 ]);
 
+// Strips special characters and punctuation from a search query so that
+// e.g. "Batman Arkham Knight" matches "Batman™: Arkham Knight".
+// Applied to the query only — stored titles remain canonical.
+export function stripSearchNoise(str) {
+    if (!str) return '';
+    return str
+        .replace(/[™®©]/g, '')        // trademark / copyright symbols
+        .replace(/[:\-–—]/g, ' ')     // colons and dashes → space
+        .replace(/['''"""]/g, '')     // quotes and apostrophes
+        .replace(/[!?.]/g, '')        // common punctuation
+        .replace(/\s+/g, ' ')         // collapse multiple spaces
+        .trim();
+}
+
 export function normaliseTitle(str) {
     if (!str) return '';
 
@@ -332,7 +346,7 @@ export async function searchCatalog(query) {
         const {data, error} = await supabase
             .from(TABLE_CATALOG)
             .select('np_comm_id, name, platform, icon_url')
-            .ilike('name', `%${normaliseTitle(query.trim())}%`)
+            .ilike('name', `%${stripSearchNoise(normaliseTitle(query.trim()))}%`)
             .limit(10);
 
         if (error || !data) return [];
@@ -362,7 +376,7 @@ export async function searchLookupTable(query) {
         const {data, error} = await supabase
             .from(TABLE_LOOKUP)
             .select('np_comm_id, title_name, platform, np_service_name')
-            .ilike('title_name', `%${normaliseTitle(query.trim())}%`)
+            .ilike('title_name', `%${stripSearchNoise(normaliseTitle(query.trim()))}%`)
             .limit(10);
 
         if (error || !data) return [];

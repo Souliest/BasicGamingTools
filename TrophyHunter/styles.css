@@ -178,6 +178,55 @@ select#gameSelect:focus {
   flex-wrap: wrap;
 }
 
+/* On narrow screens: tier chips + fraction on line 1, bar + pct on line 2 */
+@media (max-width: 420px) {
+  .th-header-stats {
+    display: grid;
+    grid-template-columns: auto auto auto 1fr auto;
+    grid-template-rows: auto auto;
+    row-gap: 6px;
+    align-items: center;
+  }
+
+  /* Row 1: plat | gold | silver | bronze | fraction */
+  .th-plat-indicator {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .tier-chip:nth-of-type(1) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .tier-chip:nth-of-type(2) {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .tier-chip:nth-of-type(3) {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .th-stat-fraction {
+    grid-column: 5;
+    grid-row: 1;
+  }
+
+  /* Row 2: progress bar spans 4 cols, pct at end */
+  .th-progress-track {
+    grid-column: 1 / 5;
+    grid-row: 2;
+    max-width: none;
+  }
+
+  .th-stat-pct {
+    grid-column: 5;
+    grid-row: 2;
+  }
+}
+
 /* ── Platinum indicator ── */
 .th-plat-indicator {
   display: flex;
@@ -238,7 +287,8 @@ select#gameSelect:focus {
 /* ── Progress bar ── */
 .th-progress-track {
   flex: 1;
-  min-width: 60px;
+  min-width: 40px;
+  max-width: 160px;
   height: 8px;
   background: var(--stat-bg);
   border: 1px solid var(--border);
@@ -330,9 +380,55 @@ select#gameSelect:focus {
 .th-group-header-stats {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   margin-top: 6px;
+}
+
+@media (max-width: 420px) {
+  .th-group-header-stats {
+    display: grid;
+    grid-template-columns: auto auto auto auto 1fr auto;
+    grid-template-rows: auto auto;
+    row-gap: 4px;
+    align-items: center;
+  }
+
+  .th-group-completion {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .th-group-header-stats .tier-chip:nth-of-type(1) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .th-group-header-stats .tier-chip:nth-of-type(2) {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .th-group-header-stats .tier-chip:nth-of-type(3) {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .th-group-header-stats .th-stat-fraction {
+    grid-column: 5;
+    grid-row: 1;
+  }
+
+  .th-group-header-stats .th-progress-track {
+    grid-column: 1 / 6;
+    grid-row: 2;
+    max-width: none;
+  }
+
+  .th-group-header-stats .th-stat-pct {
+    grid-column: 6;
+    grid-row: 2;
+  }
 }
 
 /* On wider screens, put everything on one row */
@@ -374,6 +470,13 @@ select#gameSelect:focus {
   flex: 1;
 }
 
+/* Group completion indicator (checkmark or platinum icon) */
+.th-group-completion {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 /* Group completion checkmark */
 .th-group-check {
   font-size: 0.9rem;
@@ -387,15 +490,18 @@ select#gameSelect:focus {
   text-shadow: 0 0 6px rgba(127, 255, 107, 0.4);
 }
 
-/* Group body (collapsible) */
-.th-group-body {
-  margin-top: 6px;
+/* Group children (collapsible) — hierarchy line matches ThingCounter */
+.th-group-children {
+  margin-left: 18px;
+  margin-top: 5px;
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.th-group-body.collapsed {
+.th-group-children.collapsed {
   display: none;
 }
 
@@ -474,10 +580,17 @@ body.light .th-trophy-row.th-trophy-earned {
   color: transparent;
   transition: all 0.15s;
   margin-top: 1px;
+  /* Suppress browser focus ring — we rely on border color for state */
+  outline: none;
 }
 
 .th-earn-btn:hover {
   border-color: var(--accent3);
+}
+
+/* Remove focus ring after click — avoids "previous earned" highlight discrepancy */
+.th-earn-btn:focus {
+  outline: none;
 }
 
 .th-earn-btn.earned {
@@ -485,6 +598,11 @@ body.light .th-trophy-row.th-trophy-earned {
   border-color: var(--accent3);
   color: #000;
   font-weight: bold;
+}
+
+/* Earned rows: no hover border change — they're done, don't need interaction affordance */
+.th-trophy-row.th-trophy-earned:hover {
+  border-color: var(--border);
 }
 
 /* Trophy content */

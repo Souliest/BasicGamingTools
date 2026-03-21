@@ -14,6 +14,7 @@ import {
     saveCatalogEntry,
     saveLookupEntries,
     normaliseTitle,
+    stripSearchNoise,
     createGameEntry,
     loadCatalogEntry,
     ORBIS_SEARCH_URL,
@@ -34,6 +35,7 @@ export function openAddGameModal(personalGames, onGameAdded, onSelectExisting) {
 
     _resetSearchModal();
     overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
     document.getElementById('searchInput').focus();
 
     // Clone buttons to remove any previously attached listeners before re-wiring.
@@ -56,6 +58,7 @@ export function openAddGameModal(personalGames, onGameAdded, onSelectExisting) {
 export function closeSearchModal() {
     const overlay = document.getElementById('searchModal');
     if (overlay) overlay.classList.remove('open');
+    document.body.style.overflow = '';
     _currentQuery = '';
 }
 
@@ -497,6 +500,7 @@ export async function openGameSettingsModal(game, callbacks) {
     _resetSettingsDangerZone();
 
     overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
     document.getElementById('settingsGameName').focus();
 
     // Wire rename save
@@ -563,6 +567,7 @@ export async function openGameSettingsModal(game, callbacks) {
 export function closeGameSettingsModal() {
     const overlay = document.getElementById('gameSettingsModal');
     if (overlay) overlay.classList.remove('open');
+    document.body.style.overflow = '';
 }
 
 function _resetSettingsDangerZone() {

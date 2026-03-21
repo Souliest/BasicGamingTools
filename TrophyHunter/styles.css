@@ -177,57 +177,59 @@ select#gameSelect:focus {
 
 .th-header-stats {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 5px;
 }
 
-/* On narrow screens: tier chips + fraction on line 1, bar + pct on line 2 */
-@media (max-width: 420px) {
+/* Row 1: chips (left) + fraction (right) */
+.th-stats-chips-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+/* Row 2: bar (left, max-width) + percentage (right) */
+.th-stats-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Chips group — keeps plat+G+S+B together as one unit */
+.th-chips-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Landscape: flip to single row, everything right-aligned */
+@media (min-width: 480px) {
   .th-header-stats {
-    display: grid;
-    grid-template-columns: auto auto auto 1fr auto;
-    grid-template-rows: auto auto;
-    row-gap: 6px;
+    flex-direction: row;
     align-items: center;
+    justify-content: flex-end;
+    gap: 0;
   }
 
-  /* Row 1: plat | gold | silver | bronze | fraction */
-  .th-plat-indicator {
-    grid-column: 1;
-    grid-row: 1;
+  .th-stats-chips-row {
+    justify-content: flex-end;
+    flex-shrink: 0;
   }
 
-  .tier-chip:nth-of-type(1) {
-    grid-column: 2;
-    grid-row: 1;
+  .th-stats-bar-row {
+    flex-shrink: 0;
   }
 
-  .tier-chip:nth-of-type(2) {
-    grid-column: 3;
-    grid-row: 1;
+  /* Deliberate gap between chips group and fraction in landscape */
+  .th-stats-chips-row .th-stat-fraction {
+    margin-left: 16px;
   }
 
-  .tier-chip:nth-of-type(3) {
-    grid-column: 4;
-    grid-row: 1;
-  }
-
-  .th-stat-fraction {
-    grid-column: 5;
-    grid-row: 1;
-  }
-
-  /* Row 2: progress bar spans 4 cols, pct at end */
-  .th-progress-track {
-    grid-column: 1 / 5;
-    grid-row: 2;
-    max-width: none;
-  }
-
-  .th-stat-pct {
-    grid-column: 5;
-    grid-row: 2;
+  /* Gap between the two rows when side-by-side */
+  .th-stats-bar-row {
+    margin-left: 16px;
   }
 }
 
@@ -383,78 +385,34 @@ select#gameSelect:focus {
 
 .th-group-header-stats {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
   margin-top: 6px;
 }
 
-@media (max-width: 420px) {
+/* Landscape: group stats also go single-row right-aligned, below the group name */
+@media (min-width: 480px) {
   .th-group-header-stats {
-    display: grid;
-    grid-template-columns: auto auto auto auto 1fr auto;
-    grid-template-rows: auto auto;
-    row-gap: 4px;
+    flex-direction: row;
     align-items: center;
-  }
-
-  .th-group-completion {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .th-group-header-stats .tier-chip:nth-of-type(1) {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .th-group-header-stats .tier-chip:nth-of-type(2) {
-    grid-column: 3;
-    grid-row: 1;
-  }
-
-  .th-group-header-stats .tier-chip:nth-of-type(3) {
-    grid-column: 4;
-    grid-row: 1;
-  }
-
-  .th-group-header-stats .th-stat-fraction {
-    grid-column: 5;
-    grid-row: 1;
-  }
-
-  .th-group-header-stats .th-progress-track {
-    grid-column: 1 / 6;
-    grid-row: 2;
-    max-width: none;
-  }
-
-  .th-group-header-stats .th-stat-pct {
-    grid-column: 6;
-    grid-row: 2;
-  }
-}
-
-/* On wider screens, put everything on one row */
-@media (min-width: 540px) {
-  .th-group-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .th-group-header-top {
-    flex: 0 0 auto;
-    margin-bottom: 0;
-  }
-
-  .th-group-header-stats {
-    flex: 1;
-    margin-top: 0;
     justify-content: flex-end;
-    flex-wrap: nowrap;
+    margin-top: 4px;
+    gap: 0;
+  }
+
+  .th-group-header-stats .th-stats-chips-row {
+    justify-content: flex-end;
+  }
+
+  .th-group-header-stats .th-stats-chips-row .th-stat-fraction {
+    margin-left: 16px;
+  }
+
+  .th-group-header-stats .th-stats-bar-row {
+    margin-left: 16px;
   }
 }
+
 
 .th-group-toggle {
   font-size: 0.65rem;

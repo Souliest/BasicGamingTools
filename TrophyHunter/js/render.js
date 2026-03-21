@@ -30,12 +30,14 @@ function trophyIcon(tier, earned, size = 16) {
     const opacity = earned ? '1' : '0.25';
 
     if (tier === 'platinum') {
-        // Two-path render: cup in tier color, star emblem in panel background color
-        // so it reads as engraved regardless of light/dark mode.
+        // Two-path render: cup in tier color, star emblem punched through
+        // Use a color that contrasts in both light and dark mode:
+        // dark mode: --panel is dark → star needs to be dark too (paradox) — use the bg color
+        // We use a semi-transparent dark overlay that reads in both modes
         return `<svg class="trophy-icon" width="${size}" height="${size}" viewBox="0 0 16 20"
             aria-hidden="true" opacity="${opacity}">
             <path d="${PLATINUM_CUP_PATH}" fill="${color}"/>
-            <path d="${PLATINUM_STAR_PATH}" fill="var(--panel)"/>
+            <path d="${PLATINUM_STAR_PATH}" fill="rgba(0,0,0,0.35)"/>
         </svg>`;
     }
 
@@ -102,11 +104,9 @@ export function computeGroupStats(group, trophyState) {
         if (type === 'platinum') {
             hasPlatinum = true;
             platinumEarned = !!state.earned;
-            // Platinum not counted in group progress bar/fraction
-            // (it's earned by completing the group, not part of it)
-            continue;
         }
 
+        // Platinum IS counted in group fraction, bar, and percentage
         total++;
         tierTotal[type] = (tierTotal[type] || 0) + 1;
         if (state.earned) {
@@ -123,16 +123,21 @@ export function computeGroupStats(group, trophyState) {
 
 // ── Tier chips row ──
 // Gold, silver, bronze — always shown with tier color, count always visible.
-// Platinum is handled separately in the header.
+// Platinum is included here when hasPlatinum is true.
+// Order is always P → G → S → B.
 
-function renderTierChips(tierEarned, tierTotal, size = 14) {
-    return ['gold', 'silver', 'bronze'].map(tier => {
+function renderTierChips(tierEarned, tierTotal, size, hasPlatinum, platinumEarned) {
+    const platChip = hasPlatinum
+        ? `<span class="tier-chip">${trophyIcon('platinum', platinumEarned, size)}</span>`
+        : '';
+    const rest = ['gold', 'silver', 'bronze'].map(tier => {
         const e = tierEarned[tier] || 0;
         return `<span class="tier-chip">
             ${trophyIcon(tier, true, size)}
             <span class="tier-chip-count" style="color:${TIERS[tier].color}">${e}</span>
         </span>`;
     }).join('');
+    return `<span class="th-chips-group">${platChip}${rest}</span>`;
 }
 
 // ── Progress bar ──
@@ -214,10 +219,6 @@ export function renderMain(selectedGameId, personalData, catalogEntry, callbacks
 // ─────────────────────────────────────────────
 
 export function renderGameHeader(game, catalogEntry, stats) {
-    const platIcon = stats.hasPlatinum
-        ? trophyIcon('platinum', stats.platinumEarned, 22)
-        : `<span class="th-plat-check ${stats.pct === 100 ? 'earned' : ''}">✓</span>`;
-
     return `<div class="th-game-header panel" id="gameHeader">
         <div class="th-game-title-row">
             ${catalogEntry.iconUrl
@@ -228,11 +229,14 @@ export function renderGameHeader(game, catalogEntry, stats) {
             <span class="th-platform-badge">${_escHtml(game.platform)}</span>
         </div>
         <div class="th-header-stats">
-            <span class="th-plat-indicator">${platIcon}</span>
-            ${renderTierChips(stats.tierEarned, stats.tierTotal, 16)}
-            <span class="th-stat-fraction">${stats.earned}/${stats.total}</span>
-            ${renderProgressBar(stats.pct)}
-            <span class="th-stat-pct">${stats.pct}%</span>
+            <div class="th-stats-chips-row">
+                ${renderTierChips(stats.tierEarned, stats.tierTotal, 16, stats.hasPlatinum, stats.platinumEarned)}
+                <span class="th-stat-fraction">${stats.earned}/${stats.total}</span>
+            </div>
+            <div class="th-stats-bar-row">
+                ${renderProgressBar(stats.pct)}
+                <span class="th-stat-pct">${stats.pct}%</span>
+            </div>
         </div>
     </div>`;
 }
@@ -368,7 +372,7 @@ export function renderGroup(group, game, groupStats, callbacks, viewState) {
 // ─────────────────────────────────────────────
 
 export function renderGroupHeader(group, groupStats) {
-    // If this group contains the platinum, use the platinum icon instead of checkmark
+    // Groups with platinum show the platinum icon instead of the checkmark
     const completionIndicator = groupStats.hasPlatinum
         ? trophyIcon('platinum', groupStats.platinumEarned, 14)
         : `<span class="${groupStats.isComplete ? 'th-group-check complete' : 'th-group-check'}"
@@ -380,11 +384,15 @@ export function renderGroupHeader(group, groupStats) {
             <span class="th-group-name">${_escHtml(group.name)}</span>
         </div>
         <div class="th-group-header-stats">
-            <span class="th-group-completion">${completionIndicator}</span>
-            ${renderTierChips(groupStats.tierEarned, groupStats.tierTotal, 13)}
-            <span class="th-stat-fraction">${groupStats.earned}/${groupStats.total}</span>
-            ${renderProgressBar(groupStats.pct)}
-            <span class="th-stat-pct">${groupStats.pct}%</span>
+            <div class="th-stats-chips-row">
+                <span class="th-group-completion">${completionIndicator}</span>
+                ${renderTierChips(groupStats.tierEarned, groupStats.tierTotal, 13, false, false)}
+                <span class="th-stat-fraction">${groupStats.earned}/${groupStats.total}</span>
+            </div>
+            <div class="th-stats-bar-row">
+                ${renderProgressBar(groupStats.pct)}
+                <span class="th-stat-pct">${groupStats.pct}%</span>
+            </div>
         </div>
     </div>`;
 }

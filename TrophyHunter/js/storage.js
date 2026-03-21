@@ -45,14 +45,23 @@ export function normaliseTitle(str) {
     // Normalise apostrophe variants (curly, backtick, prime) to straight quote
     const s = str.replace(/[''`′]/g, "'").trim();
 
-    return s
-        .toLowerCase()
-        .split(/(\s+)/)                    // split on whitespace, preserving runs
+    const tokens = s.toLowerCase().split(/(\s+)/);
+
+    // Find index of last non-whitespace token so we can always capitalise it
+    let lastWordIdx = -1;
+    for (let i = tokens.length - 1; i >= 0; i--) {
+        if (!/^\s+$/.test(tokens[i])) {
+            lastWordIdx = i;
+            break;
+        }
+    }
+
+    return tokens
         .map((token, i) => {
-            // Preserve whitespace tokens unchanged
             if (/^\s+$/.test(token)) return token;
-            // Always capitalise first and last real word; skip articles etc in between
-            if (i === 0 || LOWERCASE_WORDS.has(token) === false) {
+            // Always capitalise first word, last word, and words not in the
+            // lowercase set (articles, conjunctions, short prepositions)
+            if (i === 0 || i === lastWordIdx || !LOWERCASE_WORDS.has(token)) {
                 return token.charAt(0).toUpperCase() + token.slice(1);
             }
             return token;
@@ -388,9 +397,10 @@ export async function saveLookupEntries(mappings) {
     if (rows.length === 0) return;
 
     try {
+        // insert() with onConflict: ignore — never overwrites existing entries
         await supabase
             .from(TABLE_LOOKUP)
-            .upsert(rows, {onConflict: 'np_comm_id', ignoreDuplicates: true});
+            .insert(rows, {onConflict: 'np_comm_id', ignoreDuplicates: true});
     } catch {
         // Network unavailable — not fatal, lookup table fills up passively
     }

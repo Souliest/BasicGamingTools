@@ -432,7 +432,7 @@ select#gameSelect:focus {
   background: rgba(255, 255, 255, 0.02);
 }
 
-.body.light .th-trophy-row.th-trophy-earned {
+body.light .th-trophy-row.th-trophy-earned {
   background: rgba(0, 0, 0, 0.02);
 }
 

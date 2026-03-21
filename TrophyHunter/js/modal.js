@@ -213,8 +213,7 @@ async function _runContribute(personalGames, onGameAdded, onSelectExisting) {
         return;
     }
 
-    // We have results — switch back to the normal results view
-    document.getElementById('searchResults').innerHTML = '';
+    // We have results — switch to the normal results view
     _setSearchStatus('', false);
     _renderSearchResults(results, 'contribute', personalGames, onGameAdded, onSelectExisting);
 }

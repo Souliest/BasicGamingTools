@@ -174,10 +174,45 @@ function _renderPrivacy() {
     document.getElementById('authModalTitle').textContent = 'Privacy Notice';
     const body = document.getElementById('authModalBody');
     body.innerHTML = `
-        <p class="auth-privacy-text">
-            Your email address is stored solely for account recovery purposes
-            and is never shared with or sold to any third party.
-        </p>
+        <div class="auth-privacy-section">
+            <div class="auth-privacy-heading">Your account</div>
+            <p class="auth-privacy-text">
+                Your email address is used only to identify your account and enable
+                password recovery. It is never shared with or sold to any third party.
+            </p>
+        </div>
+        <div class="auth-privacy-section">
+            <div class="auth-privacy-heading">Your personal data</div>
+            <p class="auth-privacy-text">
+                Your game list and trophy progress are stored in your account so you
+                can sync across devices. This data is private to you — no one else
+                can read it. You can delete your data at any time by removing games
+                from your list.
+            </p>
+        </div>
+        <div class="auth-privacy-section">
+            <div class="auth-privacy-heading">The shared game catalog</div>
+            <p class="auth-privacy-text">
+                Trophy Hunter maintains a shared catalog of PlayStation games and their
+                trophy lists. When you search for a game that isn't in the catalog yet,
+                you may be asked to provide a PSN username — yours or anyone else's who
+                has played the game.
+            </p>
+            <p class="auth-privacy-text">
+                That username is used in a one-time lookup against PlayStation's servers
+                to find the game. <strong>The username itself is never stored.</strong>
+                Only the game title and its PlayStation trophy ID are saved — anonymous,
+                non-personal catalog data that benefits all users.
+            </p>
+        </div>
+        <div class="auth-privacy-section">
+            <div class="auth-privacy-heading">What is never collected</div>
+            <p class="auth-privacy-text">
+                No browsing behaviour, no analytics, no advertising identifiers,
+                no trophy progress from other players, no PSN account details beyond
+                the single lookup described above.
+            </p>
+        </div>
         <div class="auth-actions">
             <button class="btn btn-primary" id="authPrivacyCloseBtn">Close</button>
         </div>

@@ -201,8 +201,9 @@
   border-radius: 14px;
   width: 100%;
   max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-sizing: border-box;
-  overflow: hidden;
 }
 
 .auth-modal-header {
@@ -332,13 +333,41 @@
   line-height: 1.5;
 }
 
-/* ── Privacy notice text ── */
+/* ── Privacy notice ── */
+
+.auth-privacy-section {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.auth-privacy-section:last-of-type {
+  border-bottom: none;
+  margin-bottom: 4px;
+}
+
+.auth-privacy-heading {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
 
 .auth-privacy-text {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text);
   line-height: 1.6;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
+}
+
+.auth-privacy-text:last-child {
+  margin-bottom: 0;
+}
+
+.auth-privacy-text strong {
+  color: var(--accent);
 }
 
 /* ── Collision modal ── */

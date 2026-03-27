@@ -80,3 +80,35 @@
 .tool-header .theme-toggle:hover {
   border-color: var(--accent);
 }
+
+/* ── Fullscreen toggle ──
+   Matches the auth button and theme toggle in size and feel.
+   Hidden by default — header.js shows it only when
+   document.fullscreenEnabled is true, so iOS never sees it. */
+
+.tool-header .fullscreen-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 4px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s, color 0.2s;
+  line-height: 0;
+}
+
+.tool-header .fullscreen-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Active/engaged state — subtle accent glow while in fullscreen */
+.tool-header .fullscreen-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: var(--glow);
+}

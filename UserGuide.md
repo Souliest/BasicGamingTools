@@ -262,13 +262,10 @@ only a base game show a flat list directly.
 
 At the top of the trophy list, the game header shows:
 
-- Tier chips in Platinum → Gold → Silver → Bronze order, each in tier color
-- Earned / total fraction (counts all trophies including platinum)
-- Progress bar and percentage, weighted by Sony's official trophy point values:
-  Bronze = 15 pts, Silver = 30 pts, Gold = 90 pts. Platinum is excluded from the weighted calculation,
-  following Sony's own convention — earning all other trophies is what drives the bar to 100%.
-
-The game icon is shown at full aspect ratio (no cropping), and the title wraps to two lines before truncating.
+- The platinum trophy icon (colored when earned, dimmed when not) — or a completion checkmark for games without platinum
+- Gold / Silver / Bronze earned counts — always shown in tier color
+- Earned / total fraction (platinum is included in the count)
+- Progress bar and percentage (floored, matching PSN convention — 99% until the last trophy is earned)
 
 ### Toolbar
 
@@ -278,16 +275,17 @@ The game icon is shown at full aspect ratio (no cropping), and the title wraps t
 | Sort    | PSN order (default), A–Z alphabetical, or Grade (platinum first).                     |
 | Ungroup | Flatten all trophies into a single list. Hidden for games with only one trophy group. |
 
-When a filter is active, each section gets a labeled header: a green **Earned** header at the top of earned
-trophies, and a red **Unearned** header at the top of unearned trophies. Both headers appear in grouped and flat
-list modes. The rest of each section is dimmed and pushed below its header. Trophies move to their correct
-section immediately when you earn or unlearn them.
+When a filter is active, the list shows a labeled section divider between the matching trophies and the rest. The
+rest are dimmed and pushed to the bottom. The order updates immediately when you earn or unlearn a trophy —
+trophies move to their correct section on the spot. Trophies in the dimmed section remain interactive — you can
+earn or unlearn them without switching filters.
 
 ### Group Headers
 
 Each DLC group has its own collapsible header showing its own tier counts, fraction, and progress bar. The group
 containing the platinum trophy shows a platinum icon instead of the standard checkmark. Tap a group header to
-collapse or expand it. Collapse state is saved and restored across page reloads and filter changes.
+collapse or expand it. When every trophy in a group is earned, the group header shows a subtle green tint to make
+completion more noticeable at a glance.
 
 ### Game Settings
 
@@ -309,6 +307,17 @@ progress calculations. You can clear them by doing a fresh Refresh from PSN.
 ---
 
 ## Common Features
+
+### Fullscreen Mode
+
+Every tool has a fullscreen toggle button in the header, between the account button and the theme toggle. Tap it
+to expand the tool to fill the entire screen, hiding the browser's address bar and navigation chrome. Tap it again
+to exit. The icon changes to reflect the current state — four outward corners when not in fullscreen, four inward
+corners when in fullscreen.
+
+The button is only shown on browsers that support the Fullscreen API. It works on Firefox for Android, Chrome for
+Android, and desktop browsers. On iOS (Safari or Firefox), the button is hidden — iOS does not support
+programmatic fullscreen; use "Add to Home Screen" instead for a similar experience.
 
 ### Dark and Light Mode
 
@@ -351,19 +360,19 @@ Local Storage).
 
 ### localStorage Keys Reference
 
-| Key                                     | Tool               | Contents                                                     |
-|-----------------------------------------|--------------------|--------------------------------------------------------------|
-| `bgt:theme`                             | Global             | Dark or light theme preference.                              |
-| `bgt:auth:nudge-seen`                   | Global             | Set to `1` once the sign-in nudge is dismissed.              |
-| `bgt:xp-tracker:gains`                  | XP Tracker         | Array of logged XP gains with timestamps.                    |
-| `bgt:xp-tracker:start`                  | XP Tracker         | Session start timestamp.                                     |
-| `bgt:level-goal-tracker:data`           | Level Goal Tracker | All games, goals, and daily history.                         |
-| `bgt:level-goal-tracker:selected-game`  | Level Goal Tracker | Last selected game ID.                                       |
-| `bgt:thing-counter:data`                | Thing Counter      | All games and their counter trees.                           |
-| `bgt:thing-counter:selected-game`       | Thing Counter      | Last selected game ID.                                       |
-| `bgt:thing-counter:quick-counter-val`   | Thing Counter      | Quick Counter current value.                                 |
-| `bgt:thing-counter:quick-counter-step`  | Thing Counter      | Quick Counter step size.                                     |
-| `bgt:thing-counter:quick-counter-color` | Thing Counter      | Quick Counter accent color.                                  |
-| `bgt:trophy-hunter:data`                | Trophy Hunter      | Personal game list, trophy states, and group collapse state. |
-| `bgt:trophy-hunter:selected-game`       | Trophy Hunter      | Last selected game ID.                                       |
-| `bgt:trophy-hunter:catalog-cache`       | Trophy Hunter      | Local cache of recently viewed trophy lists.                 |
+| Key                                     | Tool               | Contents                                        |
+|-----------------------------------------|--------------------|-------------------------------------------------|
+| `bgt:theme`                             | Global             | Dark or light theme preference.                 |
+| `bgt:auth:nudge-seen`                   | Global             | Set to `1` once the sign-in nudge is dismissed. |
+| `bgt:xp-tracker:gains`                  | XP Tracker         | Array of logged XP gains with timestamps.       |
+| `bgt:xp-tracker:start`                  | XP Tracker         | Session start timestamp.                        |
+| `bgt:level-goal-tracker:data`           | Level Goal Tracker | All games, goals, and daily history.            |
+| `bgt:level-goal-tracker:selected-game`  | Level Goal Tracker | Last selected game ID.                          |
+| `bgt:thing-counter:data`                | Thing Counter      | All games and their counter trees.              |
+| `bgt:thing-counter:selected-game`       | Thing Counter      | Last selected game ID.                          |
+| `bgt:thing-counter:quick-counter-val`   | Thing Counter      | Quick Counter current value.                    |
+| `bgt:thing-counter:quick-counter-step`  | Thing Counter      | Quick Counter step size.                        |
+| `bgt:thing-counter:quick-counter-color` | Thing Counter      | Quick Counter accent color.                     |
+| `bgt:trophy-hunter:data`                | Trophy Hunter      | Personal game list and trophy states.           |
+| `bgt:trophy-hunter:selected-game`       | Trophy Hunter      | Last selected game ID.                          |
+| `bgt:trophy-hunter:catalog-cache`       | Trophy Hunter      | Local cache of recently viewed trophy lists.    |

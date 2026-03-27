@@ -156,7 +156,6 @@ select#gameSelect:focus {
   color: var(--accent);
   letter-spacing: 0.05em;
   flex: 1;
-  /* Allow up to 2 lines before ellipsis */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -223,12 +222,10 @@ select#gameSelect:focus {
     flex-shrink: 0;
   }
 
-  /* Deliberate gap between chips group and fraction in landscape */
   .th-stats-chips-row .th-stat-fraction {
     margin-left: 24px;
   }
 
-  /* Gap between the two rows when side-by-side */
   .th-stats-bar-row {
     margin-left: 24px;
   }
@@ -255,16 +252,28 @@ select#gameSelect:focus {
 /* ── Tier chips ── */
 .tier-chip {
   display: inline-flex;
-  align-items: center;
-  gap: 3px;
+  align-items: baseline;
+  gap: 2px;
   font-family: 'Orbitron', sans-serif;
   font-size: 0.75rem;
   font-weight: 700;
 }
 
+/* Earned count — primary datum, full size, full opacity */
 .tier-chip-count {
   min-width: 14px;
   text-align: left;
+}
+
+/* Separator + total — secondary datum.
+   80% of the 0.75rem chip font-size = 0.6rem.
+   Same tier color as the earned count, at 0.65 opacity to step back visually.
+   font-weight: 400 further reduces visual weight relative to the bold earned count. */
+.tier-chip-total {
+  font-size: 0.6rem;
+  font-weight: 400;
+  opacity: 0.65;
+  /* color is set inline from JS to match the tier */
 }
 
 .trophy-icon {
@@ -399,7 +408,6 @@ body.light .th-group-header.th-group-complete:hover {
   border-color: rgba(42, 138, 0, 0.5);
 }
 
-/* Desktop: single row */
 .th-group-header-top {
   display: flex;
   align-items: center;
@@ -413,7 +421,6 @@ body.light .th-group-header.th-group-complete:hover {
   margin-top: 6px;
 }
 
-/* Landscape: group stats also go single-row right-aligned, below the group name */
 @media (min-width: 480px) {
   .th-group-header-stats {
     flex-direction: row;
@@ -436,7 +443,6 @@ body.light .th-group-header.th-group-complete:hover {
   }
 }
 
-
 .th-group-toggle {
   font-size: 0.65rem;
   color: var(--muted);
@@ -455,14 +461,12 @@ body.light .th-group-header.th-group-complete:hover {
   flex: 1;
 }
 
-/* Group completion indicator (checkmark or platinum icon) */
 .th-group-completion {
   display: flex;
   align-items: center;
   flex-shrink: 0;
 }
 
-/* Group completion checkmark */
 .th-group-check {
   font-size: 0.9rem;
   font-weight: bold;
@@ -475,7 +479,6 @@ body.light .th-group-header.th-group-complete:hover {
   text-shadow: 0 0 6px rgba(127, 255, 107, 0.4);
 }
 
-/* Group children (collapsible) — hierarchy line matches ThingCounter */
 .th-group-children {
   margin-left: 18px;
   margin-top: 5px;
@@ -490,7 +493,6 @@ body.light .th-group-header.th-group-complete:hover {
   display: none;
 }
 
-/* Flat list */
 .th-flat-list {
   display: flex;
   flex-direction: column;
@@ -518,7 +520,6 @@ body.light .th-group-header.th-group-complete:hover {
   border-color: var(--muted);
 }
 
-/* Earned state */
 .th-trophy-row.th-trophy-earned {
   background: rgba(255, 255, 255, 0.02);
 }
@@ -527,19 +528,16 @@ body.light .th-trophy-row.th-trophy-earned {
   background: rgba(0, 0, 0, 0.02);
 }
 
-/* Pinned state */
 .th-trophy-row.th-trophy-pinned {
   border-color: var(--accent2);
   border-left-width: 3px;
 }
 
-/* Orphaned state */
 .th-trophy-row.th-trophy-orphaned {
   opacity: 0.5;
   border-style: dashed;
 }
 
-/* Dimmed — supersort "unwanted" trophies pushed to bottom of group. */
 .th-trophy-row.th-trophy-dimmed {
   opacity: 0.45;
 }
@@ -555,7 +553,6 @@ body.light .th-trophy-row.th-trophy-earned {
    opacity still communicates "not your current focus" without
    blocking interaction. ── */
 
-/* Earn checkbox button */
 .th-earn-btn {
   width: 22px;
   height: 22px;
@@ -571,7 +568,6 @@ body.light .th-trophy-row.th-trophy-earned {
   color: transparent;
   transition: all 0.15s;
   margin-top: 1px;
-  /* Suppress browser focus ring — we rely on border color for state */
   outline: none;
 }
 
@@ -579,7 +575,6 @@ body.light .th-trophy-row.th-trophy-earned {
   border-color: var(--accent3);
 }
 
-/* Remove focus ring after click — avoids "previous earned" highlight discrepancy */
 .th-earn-btn:focus {
   outline: none;
 }
@@ -591,12 +586,10 @@ body.light .th-trophy-row.th-trophy-earned {
   font-weight: bold;
 }
 
-/* Earned rows: no hover border change — they're done, don't need interaction affordance */
 .th-trophy-row.th-trophy-earned:hover {
   border-color: var(--border);
 }
 
-/* Trophy content */
 .th-trophy-body {
   flex: 1;
   min-width: 0;
@@ -632,7 +625,6 @@ body.light .th-trophy-row.th-trophy-earned {
   opacity: 0.7;
 }
 
-/* Tier badge */
 .th-tier-badge {
   display: inline-flex;
   align-items: center;
@@ -643,25 +635,18 @@ body.light .th-trophy-row.th-trophy-earned {
   letter-spacing: 0.06em;
 }
 
-.th-tier-label {
-  /* Color is set inline from JS */
-}
-
-/* Orphaned label */
 .th-orphaned-label {
   font-size: 0.68rem;
   color: var(--accent2);
   margin-top: 4px;
 }
 
-/* Pin indicator */
 .th-pin-indicator {
   font-size: 0.75rem;
   flex-shrink: 0;
   align-self: center;
 }
 
-/* Section divider — separates earned/unearned sections within a filtered group */
 .th-section-divider {
   display: flex;
   align-items: center;
@@ -688,7 +673,6 @@ body.light .th-trophy-row.th-trophy-earned {
   flex-shrink: 0;
 }
 
-/* Empty filter message */
 .th-empty-filter {
   text-align: center;
   color: var(--muted);
@@ -770,7 +754,6 @@ body.light .th-trophy-row.th-trophy-earned {
   padding: 0 20px 16px;
 }
 
-/* ── Form elements ── */
 .form-group {
   margin: 16px 20px 0;
 }
@@ -787,7 +770,7 @@ body.light .th-trophy-row.th-trophy-earned {
 .form-group input {
   width: 100%;
   background: var(--input-bg);
-  color: var(--input-bg);
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 9px 12px;
@@ -795,10 +778,6 @@ body.light .th-trophy-row.th-trophy-earned {
   font-size: 0.95rem;
   transition: border-color 0.2s;
   box-sizing: border-box;
-}
-
-.form-group input {
-  color: var(--text);
 }
 
 .form-group input:focus {
@@ -941,7 +920,6 @@ body.light .th-trophy-row.th-trophy-earned {
   border-color: var(--muted);
 }
 
-/* Light mode: use PSN's actual brand blues */
 body.light .platform-ps5 {
   color: #00439c;
   border-color: #00439c;
@@ -1058,7 +1036,6 @@ body.light .platform-ps3 {
   color: #ff4444;
 }
 
-/* Danger confirm inline */
 .danger-confirm {
   margin-top: 10px;
   padding: 9px 12px;
@@ -1138,8 +1115,6 @@ body.light .platform-ps3 {
 .contribute-status.error {
   color: #ff4444;
 }
-
-/* ── Contribute info accordion ── */
 
 .contribute-info {
   margin-top: 14px;

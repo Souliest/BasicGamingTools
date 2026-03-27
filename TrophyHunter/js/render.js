@@ -128,8 +128,10 @@ export function computeGroupStats(group, trophyState) {
 }
 
 // ── Tier chips row ──
-// Gold, silver, bronze — always shown with tier color, count always visible.
-// Platinum is included here when hasPlatinum is true.
+// Each chip shows: [icon] [earned count] [/ total] for gold, silver, bronze.
+// Earned count is primary — full size, tier color.
+// Separator and total are secondary — 80% size, same tier color at 0.65 opacity.
+// Platinum chip shows icon only (no count) since there is always exactly one.
 // Order is always P → G → S → B.
 
 function renderTierChips(tierEarned, tierTotal, size, hasPlatinum, platinumEarned, leadingIndicator = '') {
@@ -138,9 +140,11 @@ function renderTierChips(tierEarned, tierTotal, size, hasPlatinum, platinumEarne
         : '';
     const rest = ['gold', 'silver', 'bronze'].map(tier => {
         const e = tierEarned[tier] || 0;
+        const t = tierTotal[tier] || 0;
+        const color = TIERS[tier].color;
         return `<span class="tier-chip">
             ${trophyIcon(tier, true, size)}
-            <span class="tier-chip-count" style="color:${TIERS[tier].color}">${e}</span>
+            <span class="tier-chip-count" style="color:${color}">${e}</span><span class="tier-chip-total" style="color:${color}">/${t}</span>
         </span>`;
     }).join('');
     return `<span class="th-chips-group">${leadingIndicator}${platChip}${rest}</span>`;
@@ -393,14 +397,11 @@ export function renderGroup(group, game, groupStats, callbacks, viewState) {
 // ─────────────────────────────────────────────
 
 export function renderGroupHeader(group, groupStats, toggleChar = '▼') {
-    // Groups with platinum show the platinum icon instead of the checkmark.
     const completionIndicator = groupStats.hasPlatinum
         ? trophyIcon('platinum', groupStats.platinumEarned, 14)
         : `<span class="${groupStats.isComplete ? 'th-group-check complete' : 'th-group-check'}"
                 title="${groupStats.isComplete ? 'Complete' : 'Incomplete'}">✓</span>`;
 
-    // th-group-complete tint applied when every trophy in the group is earned.
-    // isComplete requires all trophies earned including platinum if present.
     const completeClass = groupStats.isComplete ? ' th-group-complete' : '';
 
     return `<div class="th-group-header${completeClass}" data-group-id="${_escHtml(group.groupId)}">

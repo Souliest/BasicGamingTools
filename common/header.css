@@ -82,16 +82,19 @@
 }
 
 /* ── Fullscreen toggle ──
-   Matches the auth button and theme toggle in size and feel.
-   Hidden by default — header.js shows it only when
-   document.fullscreenEnabled is true, so iOS never sees it. */
+   padding: 4px 10px matches the theme toggle and auth button exactly.
+   The SVG is 18×18 to sit at the same visual weight as the 🌙 and 👤 emoji.
+   display:none by default — header.js reveals it when document.fullscreenEnabled
+   is true, so the button is invisible on iOS where the API is unsupported. */
 
-.tool-header .fullscreen-toggle {
+.tool-header .fullscreen-toggle,
+.fullscreen-toggle {
   background: none;
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
-  padding: 4px 8px;
+  font-size: 1rem;
+  padding: 4px 10px;
   cursor: pointer;
   flex-shrink: 0;
   display: flex;
@@ -101,13 +104,15 @@
   line-height: 0;
 }
 
-.tool-header .fullscreen-toggle:hover {
+.tool-header .fullscreen-toggle:hover,
+.fullscreen-toggle:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 
 /* Active/engaged state — subtle accent glow while in fullscreen */
-.tool-header .fullscreen-toggle.active {
+.tool-header .fullscreen-toggle.active,
+.fullscreen-toggle.active {
   border-color: var(--accent);
   color: var(--accent);
   box-shadow: var(--glow);

@@ -1,11 +1,15 @@
 // common/header.js
 // Shared Tool Header — call initHeader('Tool Title') once per page, before initTheme().
-// Injects a <header> as the first child of <body> with:
+// Injects a <header class="tool-header"> as the first child of <body> with:
 //   - responsive ← / ← Tools back link
 //   - centered page title
 //   - 👤 auth indicator (wired by auth-ui.js initAuth())
 //   - fullscreen toggle (hidden on devices where the Fullscreen API is unavailable)
 //   - dark/light theme toggle (wired to toggleTheme() from theme.js)
+//
+// The hub (index.html) does not call initHeader() but loads this file to get
+// toggleFullscreen() and the fullscreenchange listener. It wires its own
+// fullscreen button manually in its inline HTML.
 
 function initHeader(title) {
     const header = document.createElement('header');
@@ -26,19 +30,32 @@ function initHeader(title) {
   `;
     document.body.insertBefore(header, document.body.firstChild);
 
-    // Show the button only on devices that support the Fullscreen API.
-    // iOS Safari and Firefox iOS do not set fullscreenEnabled — hide cleanly.
+    _initFullscreenBtn('fullscreenBtn');
+}
+
+// ── Called by both initHeader (tools) and the hub directly ──
+// Reveals the button if the API is available, wires the fullscreenchange listener.
+
+function _initFullscreenBtn(btnId) {
     if (document.fullscreenEnabled) {
-        const btn = document.getElementById('fullscreenBtn');
+        const btn = document.getElementById(btnId);
         if (btn) btn.style.display = '';
     }
 
-    // Keep icon in sync when the user exits fullscreen via browser gesture
-    // (back swipe, Escape key, etc.) rather than our button.
-    document.addEventListener('fullscreenchange', _onFullscreenChange);
+    // Only add the listener once — guard against double-init if somehow called twice.
+    if (!window._fullscreenListenerAttached) {
+        document.addEventListener('fullscreenchange', _onFullscreenChange);
+        window._fullscreenListenerAttached = true;
+    }
 }
 
-// ── Fullscreen toggle — exposed as a global for the inline onclick ──
+// ── Hub entry point — call this from index.html after the button exists in the DOM ──
+
+function initFullscreenForHub() {
+    _initFullscreenBtn('fullscreenBtn');
+}
+
+// ── Fullscreen toggle — global, called by inline onclick on both hub and tool headers ──
 
 function toggleFullscreen() {
     if (!document.fullscreenEnabled) return;
@@ -51,6 +68,7 @@ function toggleFullscreen() {
 }
 
 // ── Sync button icon to actual fullscreen state ──
+// Handles both the hub and tool buttons by ID — whichever is present on the page.
 
 function _onFullscreenChange() {
     const btn = document.getElementById('fullscreenBtn');
@@ -59,43 +77,38 @@ function _onFullscreenChange() {
     if (document.fullscreenElement) {
         btn.innerHTML = _fullscreenIconExit();
         btn.title = 'Exit fullscreen';
+        btn.classList.add('active');
     } else {
         btn.innerHTML = _fullscreenIconEnter();
         btn.title = 'Enter fullscreen';
+        btn.classList.remove('active');
     }
 }
 
 // ── SVG icons ──
 // Enter: four L-shaped corners pointing outward (expand).
 // Exit:  four L-shaped corners pointing inward (compress).
-// Both drawn on a 10×10 grid, viewBox="0 0 10 10", stroke-based for crispness.
+// Drawn on a 10×10 viewBox, stroke-based for crispness at small sizes.
+// Size set to 18×18 to visually match the emoji height of 👤 and 🌙.
 
 function _fullscreenIconEnter() {
-    return `<svg width="16" height="16" viewBox="0 0 10 10"
+    return `<svg width="18" height="18" viewBox="0 0 10 10"
         fill="none" stroke="currentColor" stroke-width="1.5"
         stroke-linecap="square" aria-hidden="true">
-      <!-- top-left corner -->
       <polyline points="3,1 1,1 1,3"/>
-      <!-- top-right corner -->
       <polyline points="7,1 9,1 9,3"/>
-      <!-- bottom-left corner -->
       <polyline points="1,7 1,9 3,9"/>
-      <!-- bottom-right corner -->
       <polyline points="9,7 9,9 7,9"/>
     </svg>`;
 }
 
 function _fullscreenIconExit() {
-    return `<svg width="16" height="16" viewBox="0 0 10 10"
+    return `<svg width="18" height="18" viewBox="0 0 10 10"
         fill="none" stroke="currentColor" stroke-width="1.5"
         stroke-linecap="square" aria-hidden="true">
-      <!-- top-left arrow pointing inward -->
       <polyline points="1,3 3,3 3,1"/>
-      <!-- top-right arrow pointing inward -->
       <polyline points="9,3 7,3 7,1"/>
-      <!-- bottom-left arrow pointing inward -->
       <polyline points="1,7 3,7 3,9"/>
-      <!-- bottom-right arrow pointing inward -->
       <polyline points="9,7 7,7 7,9"/>
     </svg>`;
 }

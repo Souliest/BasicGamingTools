@@ -30,7 +30,7 @@ function trophyIcon(tier, earned, size = 16) {
     const opacity = earned ? '1' : '0.25';
 
     if (tier === 'platinum') {
-        return `<svg class="trophy-icon" width="${size}" height="${size}" viewBox="0 0 16 20"
+        return `<svg class="trophy-icon trophy-icon-platinum" width="${size}" height="${size}" viewBox="0 0 16 20"
             aria-hidden="true" opacity="${opacity}">
             <path d="${PLATINUM_CUP_PATH}" fill="${color}"/>
             <path d="${PLATINUM_STAR_PATH}" fill="#1a1a2e"/>
@@ -131,12 +131,15 @@ export function computeGroupStats(group, trophyState) {
 // Each chip shows: [icon] [earned count] [/ total] for gold, silver, bronze.
 // Earned count is primary — full size, tier color.
 // Separator and total are secondary — 80% size, same tier color at 0.65 opacity.
-// Platinum chip shows icon only (no count) since there is always exactly one.
+// Platinum chip shows icon only (no count) — there is always exactly one platinum.
+// Platinum icon is rendered 3px larger than peer icons and bottom-aligned with them.
 // Order is always P → G → S → B.
 
 function renderTierChips(tierEarned, tierTotal, size, hasPlatinum, platinumEarned, leadingIndicator = '') {
+    // Platinum icon is slightly larger than its peers for visual distinction.
+    const platSize = size + 3;
     const platChip = hasPlatinum
-        ? `<span class="tier-chip">${trophyIcon('platinum', platinumEarned, size)}</span>`
+        ? `<span class="tier-chip tier-chip-plat">${trophyIcon('platinum', platinumEarned, platSize)}</span>`
         : '';
     const rest = ['gold', 'silver', 'bronze'].map(tier => {
         const e = tierEarned[tier] || 0;

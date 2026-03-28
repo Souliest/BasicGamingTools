@@ -199,7 +199,7 @@ select#gameSelect:focus {
 /* Chips group — keeps plat+G+S+B together as one unit */
 .th-chips-group {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 6px;
   flex-shrink: 0;
 }
@@ -250,6 +250,8 @@ select#gameSelect:focus {
 }
 
 /* ── Tier chips ── */
+
+/* Standard chip: icon + earned count + /total, baseline-aligned */
 .tier-chip {
   display: inline-flex;
   align-items: baseline;
@@ -259,16 +261,24 @@ select#gameSelect:focus {
   font-weight: 700;
 }
 
-/* Earned count — primary datum, full size, full opacity */
+/* Platinum chip: icon only, no text — bottom-align with adjacent chips
+   so the base of the platinum icon sits level with the text baseline
+   of the gold/silver/bronze chips next to it. */
+.tier-chip-plat {
+  align-items: flex-end;
+  align-self: flex-end;
+}
+
+/* Earned count — primary datum, full size, full opacity.
+   No min-width — the /total provides stable chip width now. */
 .tier-chip-count {
-  min-width: 14px;
   text-align: left;
 }
 
 /* Separator + total — secondary datum.
    80% of the 0.75rem chip font-size = 0.6rem.
-   Same tier color as the earned count, at 0.65 opacity to step back visually.
-   font-weight: 400 further reduces visual weight relative to the bold earned count. */
+   Same tier color as the earned count at 0.65 opacity.
+   font-weight: 400 further reduces visual weight. */
 .tier-chip-total {
   font-size: 0.6rem;
   font-weight: 400;
@@ -276,10 +286,12 @@ select#gameSelect:focus {
   /* color is set inline from JS to match the tier */
 }
 
+/* All trophy icons bottom-align so the base of every icon — including
+   the slightly larger platinum — sits on the same visual floor. */
 .trophy-icon {
   flex-shrink: 0;
   display: inline-block;
-  vertical-align: middle;
+  vertical-align: bottom;
 }
 
 /* ── Stat fraction and percentage ── */
@@ -386,10 +398,7 @@ select#gameSelect:focus {
   border-color: var(--muted);
 }
 
-/* ── Completed group tint ──
-   Applied when every trophy in the group is earned.
-   Uses accent3 (green) at low opacity so it reads in both dark and light mode
-   without overwhelming the layout. Border gets a matching tint too. */
+/* ── Completed group tint ── */
 .th-group-header.th-group-complete {
   background: rgba(127, 255, 107, 0.06);
   border-color: rgba(127, 255, 107, 0.3);
@@ -547,11 +556,7 @@ body.light .th-trophy-row.th-trophy-earned {
   border-color: var(--border);
 }
 
-/* ── Bug fix: earn button on dimmed rows must remain clickable.
-   Previously pointer-events: none prevented toggling trophies in the
-   "unwanted" section when a filter was active. Removed. The dimmed
-   opacity still communicates "not your current focus" without
-   blocking interaction. ── */
+/* ── Bug fix: earn button on dimmed rows must remain clickable. ── */
 
 .th-earn-btn {
   width: 22px;

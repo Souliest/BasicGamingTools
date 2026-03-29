@@ -147,10 +147,38 @@ to Supabase. Individual game saves go through `saveGame(game)`, which also stamp
 and re-render the UI without waiting for Supabase. A 2-second debounce timer (`_scheduleSync` in `main.js`)
 fires a background Supabase write after the last interaction, batching rapid trophy toggles into a single write.
 The timer is flushed synchronously on game switch and on opening the add-game modal to prevent stale data.
+`_syncTimer` is explicitly set to `null` after clearing so the Realtime handler can distinguish "no pending
+changes" from "timer running".
 
 **Collision detection:** triggered on game select via `loadGame(gameId)`. Compares `game.last_modified` (local)
 against `updated_at` (Supabase). If they differ by more than 5 seconds, a modal presents both timestamps and lets
 the user pick Local or Cloud. The loser is updated accordingly.
+
+---
+
+## TrophyHunter — Realtime Sync
+
+TrophyHunter supports live cross-device sync via Supabase Realtime when `REALTIME_ENABLED = true` in `storage.js`.
+
+**Setup requirement:** the `bgt_trophy_hunter_games` table must have Update events enabled under
+**Database → Publications → supabase_realtime** in the Supabase dashboard. This is a one-time configuration.
+
+**Subscribe/unsubscribe:** `subscribeToGameChanges(userId, onRemoteUpdate)` in `storage.js` opens a
+`postgres_changes` channel filtered to `UPDATE` events on `bgt_trophy_hunter_games` for the signed-in user.
+`unsubscribeFromGameChanges()` tears it down. Both are called from `main.js` — on init if signed in, and on
+auth state changes (sign-in → subscribe, sign-out → unsubscribe).
+
+**Incoming update handling (`_onRemoteUpdate` in `main.js`):**
+
+1. If `_syncTimer !== null` (local changes pending), ignore — local state takes priority.
+2. Compare `remoteUpdatedAt` against `localGame.last_modified`. Skip if remote is not strictly newer.
+3. Apply remote state to `_personalData`, write to localStorage via `localSave()`.
+4. If the affected game is currently selected, call `_doRenderMain()` to reflect the change.
+5. If the game isn't in the local list at all (added on another device), add it and rebuild the selector.
+
+**Kill switch:** setting `REALTIME_ENABLED = false` in `storage.js` bypasses the subscription entirely.
+`subscribeToGameChanges` and `unsubscribeFromGameChanges` are no-ops when the flag is false. No other code
+changes are needed — the tool falls back to the existing debounced sync behaviour automatically.
 
 ---
 
@@ -207,20 +235,32 @@ only duplicate the game header, so it is suppressed entirely.
 If found, the group header renders the platinum trophy icon (colored if earned, dimmed if not) instead of the
 standard checkmark. All other groups keep checkmarks.
 
+**Platinum icon sizing:** the platinum icon is rendered at `size + 3` relative to peer tier icons in the same
+chip row (e.g. 19px vs 16px in the game header). All icons use `display: block` and their parent chip uses
+`align-items: flex-end` so every icon bottom-aligns on the same floor regardless of height difference.
+
+**Per-tier earned/total chips:** `renderTierChips` renders `[icon] [earned]/[total]` for gold, silver, and
+bronze. The earned count uses the full chip font-size (`0.75rem`) at full opacity. The separator and total use
+`0.6rem` at `0.65` opacity — same tier color, reduced weight. Platinum shows icon only (always exactly one).
+
 **Completed group tint:** when `groupStats.isComplete` is true (all trophies in the group earned, including
 platinum if present), `renderGroupHeader` adds the class `th-group-complete` to the header element. The CSS
-applies a subtle green background tint and matching border using `--accent3` at low opacity. The tint is applied
-only to group headers, never to the main game header. It updates via the targeted `updateGroupHeader` path so
-no full re-render is needed when the last trophy in a group is earned.
+applies a fully opaque green-tinted background (`#182324` dark / `#f2f8f0` light) — computed by compositing the
+rgba tint over the `--panel` base colour. Opaque backgrounds are required because the header is sticky; a
+semi-transparent background causes trophy rows to bleed through.
+
+**Sticky group headers:** `.th-group-header` uses `position: sticky; top: 6px; z-index: 10`. The 6px offset
+gives visual breathing room from the viewport edge. The explicit opaque background prevents content bleed-through.
+`z-index: 10` keeps headers above trophy rows but below modals (`z-index: 100+`). No JS required.
+
+**Dimmed rows interactive:** trophies in the dimmed (unwanted) section of a filtered list are visually
+de-emphasised via opacity but their earn buttons are fully clickable. Toggling a dimmed trophy triggers a full
+`_doRenderMain()` so it moves to its correct section immediately.
 
 **Section dividers:** when a filter (Earned / Unearned) is active, `filterTrophies` injects a sentinel object
 `{_divider: true, _label: '...'}` between the wanted and unwanted sections. The renderer checks for `_divider`
 and calls `renderSectionDivider(label)` instead of `renderTrophyRow`. The divider is only injected when both
 sections are non-empty. Pinned trophies float within the wanted section only, not across the divider.
-
-**Dimmed rows remain interactive:** trophies in the dimmed (unwanted) section of a filtered list are visually
-de-emphasised via opacity but their earn buttons are fully clickable. Toggling a dimmed trophy triggers a full
-`_doRenderMain()` so it moves to its correct section immediately.
 
 **Filter-aware toggle re-render:** when `viewState.filter !== 'all'`, `_toggleEarned` triggers a full
 `_doRenderMain()` instead of a targeted row swap, so the trophy moves to its correct section immediately.
@@ -229,6 +269,10 @@ When filter is `'all'`, the cheaper targeted updates (`refreshTrophyRow`, `updat
 
 **Percentage flooring:** both `computeStats` and `computeGroupStats` use `Math.floor` (not `Math.round`) for
 the weighted percentage, matching PSN convention — a game missing one bronze never shows 100%.
+
+**Selector bar height normalisation:** `.selector-bar select` and `.selector-bar .btn` both receive
+`height: 35px; box-sizing: border-box`. This locks all elements in the selector bar to the same height
+regardless of glyph rendering differences between the ✎ character and standard text.
 
 ---
 
@@ -273,9 +317,12 @@ tools. Keep entries in alphabetical order by name.
 - `toggleFullscreen()` is a global function defined in `header.js` — calls `requestFullscreen()` on
   `document.documentElement` to enter, `exitFullscreen()` to leave.
 - A `fullscreenchange` event listener on `document` keeps the button icon in sync when the user exits fullscreen
-  via a browser gesture (back swipe, Escape key) rather than the button.
+  via a browser gesture (back swipe, Escape key) rather than the button. A `_fullscreenListenerAttached` guard
+  prevents duplicate listeners.
 - SVG icons: enter = four outward corner brackets, exit = four inward corner brackets. Both drawn on a 10×10
-  viewBox using `<polyline>` strokes for crispness at small sizes.
+  viewBox using `<polyline>` strokes for crispness at small sizes. No `width`/`height` attributes on the SVG —
+  size is controlled via `.fullscreen-icon` in CSS (`width: 1em; height: 1em`) so it matches the emoji optical
+  weight of neighbouring buttons.
 - Called identically in every tool — there are no per-tool variations.
 
 ---
@@ -477,7 +524,13 @@ window.saveGame = () => saveGame(selectedGameId, afterGameSaved);
 - **Hybrid storage:** `loadData()` reads localStorage, merges from Supabase (`bgt_trophy_hunter_games`)
 - **Debounced sync:** trophy interactions write to localStorage immediately via `localSave()` and re-render
   without waiting for Supabase. `_scheduleSync()` in `main.js` debounces the Supabase write to 2 seconds
-  after the last interaction. Timer is flushed on game switch and add-game modal open.
+  after the last interaction. `_syncTimer` is set to `null` after firing so the Realtime handler can
+  distinguish "no pending changes" from "timer running". Timer is flushed on game switch and add-game modal open.
+- **Realtime sync:** `REALTIME_ENABLED` flag in `storage.js` gates live cross-device sync. When true,
+  `subscribeToGameChanges(userId, onRemoteUpdate)` opens a `postgres_changes` channel for UPDATE events on
+  `bgt_trophy_hunter_games`. Incoming updates are applied only if `_syncTimer === null` and the remote
+  timestamp is strictly newer than local. Kill switch: set `REALTIME_ENABLED = false` to revert to
+  debounce-only sync with no other code changes.
 - **Shared catalog:** `bgt_trophy_hunter_catalog` stores full trophy lists shared across all users
 - **Shared lookup table:** `bgt_trophy_hunter_lookup` maps title names to NPWR IDs; populated passively
 - **Collision detection** runs on game select via `loadGame(gameId)`; resolved via modal in `main.js`
@@ -487,9 +540,14 @@ window.saveGame = () => saveGame(selectedGameId, afterGameSaved);
 - **Cloudflare Worker** (`bgt-psn-proxy`) proxies all PSN API calls; never touches Supabase
 - **Single-group auto-flatten:** games with one group force `ungrouped: true`; ungroup toggle hidden
 - **Group platinum indicator:** detected by scanning group trophies for `type === 'platinum'`; renders
-  platinum icon instead of checkmark for that group
+  platinum icon instead of checkmark for that group; platinum icon rendered at `size + 3` for visual distinction
+- **Per-tier earned/total:** `renderTierChips` shows `[icon][earned]/[total]`; earned at full size/opacity,
+  total at `0.6rem` / `0.65` opacity; platinum chip shows icon only
 - **Completed group tint:** `th-group-complete` class added to group header when `isComplete` is true;
-  CSS applies subtle `--accent3` green tint to background and border; updates via targeted `updateGroupHeader`
+  fully opaque computed background colours used (`#182324` dark / `#f2f8f0` light) to prevent bleed-through
+  under sticky positioning
+- **Sticky group headers:** `position: sticky; top: 6px; z-index: 10` on `.th-group-header`; opaque
+  background required; updates via targeted `updateGroupHeader`; collapse toggle still works while stuck
 - **Dimmed rows interactive:** earn buttons on dimmed (filtered-out) trophy rows are fully clickable;
   toggling a dimmed trophy triggers full re-render so it moves to its correct section immediately
 - **Section dividers:** `filterTrophies` injects a `{_divider, _label}` sentinel between wanted/unwanted
@@ -498,6 +556,8 @@ window.saveGame = () => saveGame(selectedGameId, afterGameSaved);
   updates immediately; when filter is `'all'`, cheaper targeted DOM updates are used
 - **Percentage flooring:** `Math.floor` used in both `computeStats` and `computeGroupStats` — matches PSN
   convention, never rounds up to 100% while any trophy remains unearned
+- **Selector bar height:** `height: 35px; box-sizing: border-box` on `.selector-bar select` and
+  `.selector-bar .btn` normalises all three elements to identical height regardless of glyph rendering
 - **`normaliseTitle()`** converts PSN title names to Title Case before saving or searching
 - `modal.js` sets `document.body.style.overflow = 'hidden'` on modal open, restores on close
 
@@ -529,6 +589,14 @@ window.saveGame = () => saveGame(selectedGameId, afterGameSaved);
   rapid; awaiting Supabase on each toggle creates noticeable lag. localStorage is the source of truth and is
   always written first. The debounce batches rapid toggles, reduces write volume, and keeps the UI instant.
   The timer is flushed on navigation to prevent stale cloud data.
+- **TrophyHunter Realtime: local-changes-win policy** — if `_syncTimer !== null`, incoming remote updates are
+  silently dropped. This prevents a remote event from overwriting in-progress local changes. The local write
+  reaches Supabase within 2 seconds and supersedes the remote state naturally.
+- **TrophyHunter Realtime: kill switch flag** — `REALTIME_ENABLED` in `storage.js` lets the feature be
+  disabled with a one-line change if connection limits or other issues arise. No architectural changes needed.
+- **TrophyHunter Realtime: Publications not Replication** — Supabase Realtime is enabled per-table under
+  Database → Publications → supabase_realtime (Update events only). Replication is a separate paid feature
+  for database mirroring and is not used.
 - **TrophyHunter worker is a pure PSN proxy** — keeping Supabase out of the worker consolidates all
   orchestration logic in `storage.js`, avoids a second set of credentials in Cloudflare, and keeps the
   worker simple and stateless (except for the Durable Object token cache).
@@ -540,6 +608,14 @@ window.saveGame = () => saveGame(selectedGameId, afterGameSaved);
 - **Section divider as sentinel object** — injecting `{_divider: true}` into the filtered array keeps the
   rendering logic in one place (`renderGroup`, `renderFlatList`) without needing separate before/after arrays
   or post-processing passes
+- **Sticky group headers: CSS-only** — `position: sticky` requires no JS; the page header is normal flow
+  (not fixed), so `top: 6px` parks the header just below the viewport edge with no offset calculation needed
+- **Completed group tint: opaque computed colours** — `rgba()` backgrounds bleed through under sticky
+  positioning; pre-composited hex values (`#182324`, `#f2f8f0`) provide the same visual result without
+  transparency artefacts
+- **Selector bar height normalisation via explicit `height`** — padding-based height matching fails because
+  different glyphs (✎ vs text) have different line heights; an explicit `height: 35px` on all flex children
+  of `.selector-bar` is the only reliable fix
 - **Fullscreen via `document.documentElement.requestFullscreen()`** — fullscreens the entire page rather than
   a specific element, so the header, toolbar, and all content scale together naturally
 - **Fullscreen button hidden when `!document.fullscreenEnabled`** — iOS Safari and Firefox iOS do not support

@@ -262,10 +262,11 @@ only a base game show a flat list directly.
 
 At the top of the trophy list, the game header shows:
 
-- The platinum trophy icon (colored when earned, dimmed when not) — or a completion checkmark for games without platinum
-- Gold / Silver / Bronze earned counts — always shown in tier color
+- The platinum trophy icon (colored when earned, dimmed when not) — slightly larger than the gold/silver/bronze icons
+- Gold / Silver / Bronze chips showing **earned/total** — e.g. `3/12`. The earned count is bold and full-size; the
+  `/total` is smaller and slightly faded, providing context without competing for attention
 - Earned / total fraction (platinum is included in the count)
-- Progress bar and percentage (floored, matching PSN convention — 99% until the last trophy is earned)
+- Progress bar and percentage — floored to match PSN convention (99% until the very last trophy is earned)
 
 ### Toolbar
 
@@ -276,16 +277,21 @@ At the top of the trophy list, the game header shows:
 | Ungroup | Flatten all trophies into a single list. Hidden for games with only one trophy group. |
 
 When a filter is active, the list shows a labeled section divider between the matching trophies and the rest. The
-rest are dimmed and pushed to the bottom. The order updates immediately when you earn or unlearn a trophy —
-trophies move to their correct section on the spot. Trophies in the dimmed section remain interactive — you can
-earn or unlearn them without switching filters.
+rest are dimmed and pushed to the bottom — but remain fully interactive. You can earn or unlearn trophies in the
+dimmed section without switching filters.
 
 ### Group Headers
 
-Each DLC group has its own collapsible header showing its own tier counts, fraction, and progress bar. The group
-containing the platinum trophy shows a platinum icon instead of the standard checkmark. Tap a group header to
-collapse or expand it. When every trophy in a group is earned, the group header shows a subtle green tint to make
-completion more noticeable at a glance.
+Each DLC group has its own collapsible header showing tier counts with earned/total, fraction, and progress bar.
+The group containing the platinum trophy shows a platinum icon instead of the standard checkmark. Tap a group
+header to collapse or expand it.
+
+When every trophy in a group is earned, the group header shows a subtle green tint to make completion visible at
+a glance. The tint is fully opaque so it doesn't bleed through when the header is sticky.
+
+Group headers are **sticky** — as you scroll through a group's trophies, the group header locks to the top of
+the viewport so you always know which group you're in. It parks 6px from the top edge for breathing room, and
+releases when the next group begins.
 
 ### Game Settings
 
@@ -304,6 +310,18 @@ If a game's trophy list changes on PlayStation, trophies that no longer exist in
 orphaned rather than silently deleted. They appear with a dashed border and a warning label, and are excluded from
 progress calculations. You can clear them by doing a fresh Refresh from PSN.
 
+### Real-time Cross-device Sync
+
+When signed in, Trophy Hunter syncs trophy state in real time across your devices. If you earn a trophy on your
+phone, it appears on your tablet within seconds — no reload required.
+
+This works silently in the background. If you are actively tapping trophies on one device when an update arrives
+from another, your in-progress changes take priority. The incoming update is ignored, and your local state reaches
+the cloud within 2 seconds.
+
+If real-time sync ever needs to be turned off (e.g. to stay within connection limits), set `REALTIME_ENABLED =
+false` in `storage.js`. The tool falls back to its previous sync behaviour with no other changes required.
+
 ---
 
 ## Common Features
@@ -317,7 +335,7 @@ corners when in fullscreen.
 
 The button is only shown on browsers that support the Fullscreen API. It works on Firefox for Android, Chrome for
 Android, and desktop browsers. On iOS (Safari or Firefox), the button is hidden — iOS does not support
-programmatic fullscreen; use "Add to Home Screen" instead for a similar experience.
+programmatic fullscreen.
 
 ### Dark and Light Mode
 

@@ -24,28 +24,35 @@ The application is designed to be fast and practical — no PlayStation account 
 
 ## Features
 
-- Clean and responsive interface optimised for portrait mobile
+- Clean and responsive interface
 - Full trophy list for any PlayStation game (PS3, PS4, PS5, PS Vita)
-- Trophy progress header with tier counts (Platinum → Gold → Silver → Bronze), fraction, and weighted progress bar
-- Progress bar and percentage use Sony's official trophy point weights (Bronze 15 / Silver 30 / Gold 90);
-  platinum is excluded from weighted progress following Sony convention
-- Fraction (earned/total) always uses raw counts including platinum
-- Platinum trophy rendered as a distinct SVG icon with a star emblem; colored when earned, dimmed when not
+- Trophy progress header with platinum indicator, tier counts, fraction, and progress bar
+- Platinum counted in total, fraction, and progress bar — distinct SVG icon, slightly larger than peer tier icons
+- Per-tier earned/total counts (e.g. `3/12`) in the chips row — earned count is primary, total is secondary at
+  reduced size and opacity
 - Per-group progress tracking for base game and DLC expansions
 - Group containing the platinum trophy shows a platinum icon instead of a checkmark
+- Completed groups (all trophies earned) show a subtle green background tint on the group header
 - Single-group games auto-flatten — the ungroup toggle is hidden when there is no DLC
-- Hierarchy line on grouped lists
-- Filter by All / Earned / Unearned — labeled section headers appear at the top of each section
-  (green Earned header, red Unearned header), both in flat list and per-group
+- Hierarchy line on grouped lists, consistent with Thing Counter
+- Sticky group headers — the group name and stats pin to the top of the viewport while scrolling through
+  a group's trophies, with 6px of breathing room from the viewport edge
+- Filter by All / Earned / Unearned — with a labeled section divider between sections when both are present;
+  trophies in the dimmed section remain fully interactive
 - Sort by PSN order, alphabetical, or grade; re-sorts immediately on trophy toggle when a filter is active
 - Flat list mode to ungroup DLC
 - Long-press any trophy to pin it (pinned trophies float to the top of their group)
-- Group collapse/expand state persisted across reloads, refreshes, and filter changes
-- Instant UI response — trophy state writes to localStorage immediately; Supabase syncs in the background
-  after a 2-second debounce, batching rapid toggles into a single write
+- Instant UI response — trophy state writes to localStorage immediately; Supabase syncs in the background after a
+  2-second debounce, batching rapid toggles into a single write
+- Real-time cross-device sync — when signed in and `REALTIME_ENABLED = true` in `storage.js`, trophy state
+  changes on one device propagate silently to other signed-in devices via Supabase Realtime; can be toggled off
+  with a single flag if needed
 - Orphaned trophy detection — trophies removed from PSN are flagged rather than silently deleted
 - Game settings: rename, reset progress, refresh from PSN, remove game
 - Collision detection: if local and cloud data differ, a prompt lets you choose which to keep
+- Percentage uses `Math.floor` matching PSN convention — never rounds up to 100% while any trophy is unearned
+- Fullscreen toggle in the header (Firefox Android, Chrome Android, desktop) — hidden on iOS where the API is
+  unavailable
 - Scroll locked under modals
 - Local storage persistence (works offline)
 - Optional cross-device sync via Supabase when signed in
@@ -61,8 +68,8 @@ TrophyHunter/
 ├── index.html
 ├── styles.css
 ├── js/
-│   ├── main.js       # Entry point: state, selector, interactions, debounced sync, globals, init
-│   ├── storage.js    # Hybrid storage: localStorage, Supabase, worker calls, 4-step search flow
+│   ├── main.js       # Entry point: state, selector, interactions, debounced sync, Realtime, globals, init
+│   ├── storage.js    # Hybrid storage: localStorage, Supabase, Realtime subscription, worker calls, 4-step search flow
 │   ├── render.js     # All HTML section builders and DOM update functions for the main view
 │   └── modal.js      # Search modal, contribute prompt, game settings modal
 └── README.md
@@ -105,11 +112,10 @@ grows over time without any manual curation.
 
 ## Storage
 
-Personal game state (which trophies you've earned and pinned, plus group collapse state) is stored locally in
-`localStorage` under `bgt:trophy-hunter:data`. When signed in, each game's state is also persisted as an
-individual row in Supabase (`bgt_trophy_hunter_games`). Writes go to localStorage immediately on every
-interaction; Supabase is updated in the background after a 2-second debounce, batching rapid trophy toggles
-into a single write.
+Personal game state (which trophies you've earned and pinned) is stored locally in `localStorage` under
+`bgt:trophy-hunter:data`. When signed in, each game's state is also persisted as an individual row in Supabase
+(`bgt_trophy_hunter_games`). Writes go to localStorage immediately on every interaction; Supabase is updated
+in the background after a 2-second debounce, batching rapid trophy toggles into a single write.
 
 Trophy data (the actual trophy lists) is stored in a shared Supabase catalog (`bgt_trophy_hunter_catalog`) and
 cached locally in an LRU cache (max 3 entries) under `bgt:trophy-hunter:catalog-cache`. This table is shared
@@ -117,6 +123,23 @@ across all users — fetching a game's trophies once makes them available to eve
 
 A third shared table (`bgt_trophy_hunter_lookup`) maps game titles to their PlayStation NPWR IDs. It is populated
 passively during searches and never stores user data.
+
+---
+
+## Real-time Sync
+
+When signed in, Trophy Hunter can sync trophy state in real time across multiple devices using Supabase Realtime.
+
+**To enable:** `REALTIME_ENABLED` in `storage.js` must be `true` (the default), and the `bgt_trophy_hunter_games`
+table must have Update events enabled under **Database → Publications → supabase_realtime** in the Supabase
+dashboard.
+
+**To disable:** set `REALTIME_ENABLED = false` in `storage.js`. The tool falls back to the previous sync
+behaviour — state is pulled on page load and on game select, and pushed after each debounced write.
+
+**Conflict handling:** if a remote update arrives while a local debounce timer is running (i.e. you are actively
+tapping trophies), the remote update is ignored. Your in-progress local changes take priority and will reach
+Supabase within 2 seconds, superseding the remote state.
 
 ---
 
@@ -142,6 +165,7 @@ You can modify:
 - Layout in `index.html`
 - Styling in `styles.css`
 - Logic and search behavior in the `js/` modules
+- Real-time sync on/off via `REALTIME_ENABLED` in `storage.js`
 
 No build process is required.
 

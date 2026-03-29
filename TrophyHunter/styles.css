@@ -97,12 +97,15 @@ select#gameSelect:focus {
 }
 
 /* ── Game action button (✎ edit) ──
-   Must match the height of the game dropdown and + Add Game button.
-   Using !important to guarantee the override wins regardless of
-   load order or browser cache serving a stale value. */
+   The ✎ glyph renders taller than standard text at the same font-size,
+   causing the button to be taller than its neighbours. We lock the height
+   explicitly to match the computed height of a standard .btn at 0.85rem
+   with 8px top/bottom padding: (0.85 * 16 * 1.2 line-height) + 16px padding
+   ≈ 32px. Using line-height: 1 collapses the glyph's extra leading. */
 .btn.game-action-btn {
   padding: 8px 11px;
-  font-size: 0.85rem !important;
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 /* ── Empty states ── */
@@ -371,8 +374,10 @@ select#gameSelect:focus {
 }
 
 /* ── Sticky group header ──
-   top: 6px gives a few pixels of breathing room from the viewport edge
-   so the header doesn't feel flush against the top when stuck. */
+   top: 6px gives breathing room from the viewport edge.
+   Background must be fully opaque — a transparent or semi-transparent
+   background causes trophy rows to bleed through when scrolling underneath
+   the stuck header. The base colour matches --panel exactly. */
 .th-group-header {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -395,14 +400,27 @@ body.light .th-group-header {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
-/* ── Completed group tint ── */
+/* ── Completed group tint ──
+   Uses fully opaque colours derived by compositing the rgba tint over
+   the --panel base colour, so the background is solid and trophy rows
+   cannot bleed through when the header is sticky.
+   Dark mode: --panel is #111520, green tint at 0.06 opacity →
+     r: 17 + (127-17)*0.06 ≈ 24  → #18
+     g: 21 + (255-21)*0.06 ≈ 35  → #23
+     b: 32 + (107-32)*0.06 ≈ 36  → #24
+     result: #182324
+   Light mode: --panel is #ffffff, green tint at 0.06 opacity →
+     r: 255 + (42-255)*0.06 ≈ 242 → #f2
+     g: 255 + (138-255)*0.06 ≈ 248 → #f8
+     b: 255 + (0-255)*0.06  ≈ 240 → #f0
+     result: #f2f8f0                              */
 .th-group-header.th-group-complete {
-  background: rgba(127, 255, 107, 0.06);
+  background: #182324;
   border-color: rgba(127, 255, 107, 0.3);
 }
 
 body.light .th-group-header.th-group-complete {
-  background: rgba(42, 138, 0, 0.06);
+  background: #f2f8f0;
   border-color: rgba(42, 138, 0, 0.3);
 }
 

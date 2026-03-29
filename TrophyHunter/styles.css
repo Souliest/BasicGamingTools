@@ -97,12 +97,12 @@ select#gameSelect:focus {
 }
 
 /* ── Game action button (✎ edit) ──
-   Matches the font-size and padding of its .btn siblings so it renders
-   at the same height as the game dropdown and + Add Game button.
-   Previously font-size: 0.95rem made it taller than its neighbours. */
-.game-action-btn {
+   Must match the height of the game dropdown and + Add Game button.
+   Using !important to guarantee the override wins regardless of
+   load order or browser cache serving a stale value. */
+.btn.game-action-btn {
   padding: 8px 11px;
-  font-size: 0.85rem;
+  font-size: 0.85rem !important;
 }
 
 /* ── Empty states ── */
@@ -184,7 +184,6 @@ select#gameSelect:focus {
   gap: 5px;
 }
 
-/* Row 1: chips (left) + fraction (right) */
 .th-stats-chips-row {
   display: flex;
   align-items: center;
@@ -192,7 +191,6 @@ select#gameSelect:focus {
   gap: 6px;
 }
 
-/* Row 2: bar (left) + percentage (right) */
 .th-stats-bar-row {
   display: flex;
   align-items: center;
@@ -200,10 +198,6 @@ select#gameSelect:focus {
   gap: 8px;
 }
 
-/* ── Chips group ──
-   All chips bottom-align so every icon base sits on the same floor.
-   The platinum icon is taller (size+3) but shares that same bottom edge
-   with its neighbours — sitting on the shelf, not floating above it. */
 .th-chips-group {
   display: flex;
   align-items: flex-end;
@@ -211,7 +205,6 @@ select#gameSelect:focus {
   flex-shrink: 0;
 }
 
-/* Landscape: flip to single row, everything right-aligned */
 @media (min-width: 480px) {
   .th-header-stats {
     flex-direction: row;
@@ -256,11 +249,7 @@ select#gameSelect:focus {
   text-shadow: 0 0 8px rgba(212, 197, 249, 0.5);
 }
 
-/* ── Tier chips ──
-   Unified alignment: every chip is flex with align-items: flex-end.
-   This means the bottom of each SVG icon and the bottom of each text
-   span all sit on the same floor. One alignment system, no mixing. */
-
+/* ── Tier chips ── */
 .tier-chip {
   display: inline-flex;
   align-items: flex-end;
@@ -271,29 +260,21 @@ select#gameSelect:focus {
 }
 
 .tier-chip-plat {
-  /* Inherits flex-end from .tier-chip — icon-only chip, no extra rules needed */
+  /* Inherits flex-end from .tier-chip */
 }
 
-/* Earned count — primary datum, full size, full opacity.
-   No min-width — the /total provides stable chip width now. */
 .tier-chip-count {
   text-align: left;
   line-height: 1;
 }
 
-/* Separator + total — secondary datum.
-   80% of the 0.75rem chip font-size = 0.6rem.
-   Same tier color as the earned count at 0.65 opacity.
-   font-weight: 400 further reduces visual weight. */
 .tier-chip-total {
   font-size: 0.6rem;
   font-weight: 400;
   opacity: 0.65;
   line-height: 1;
-  /* color is set inline from JS to match the tier */
 }
 
-/* Trophy icons — block display, alignment handled by flex-end parent. */
 .trophy-icon {
   flex-shrink: 0;
   display: block;
@@ -390,13 +371,8 @@ select#gameSelect:focus {
 }
 
 /* ── Sticky group header ──
-   Sticks to the top of the viewport as you scroll through a group's
-   trophies. top: 0 works because the page header is normal flow and
-   scrolls away — no offset needed.
-   z-index: 10 keeps it above trophy rows (z-index: auto) without
-   conflicting with modals (z-index: 100+).
-   The explicit background and bottom shadow prevent trophy row content
-   from bleeding through when it scrolls underneath. */
+   top: 6px gives a few pixels of breathing room from the viewport edge
+   so the header doesn't feel flush against the top when stuck. */
 .th-group-header {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -406,7 +382,7 @@ select#gameSelect:focus {
   user-select: none;
   transition: border-color 0.2s, background 0.2s;
   position: sticky;
-  top: 0;
+  top: 6px;
   z-index: 10;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
@@ -415,10 +391,9 @@ select#gameSelect:focus {
   border-color: var(--muted);
 }
 
-/* Suppress the sticky shadow when not actually stuck — i.e. when the
-   header is at its natural position at the top of the group. We can't
-   detect this in pure CSS perfectly, but the shadow is subtle enough
-   that it reads fine in both states. */
+body.light .th-group-header {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
 
 /* ── Completed group tint ── */
 .th-group-header.th-group-complete {
@@ -437,12 +412,6 @@ body.light .th-group-header.th-group-complete {
 
 body.light .th-group-header.th-group-complete:hover {
   border-color: rgba(42, 138, 0, 0.5);
-}
-
-/* Light mode: stronger shadow so the sticky header reads against
-   the lighter background when content scrolls underneath. */
-body.light .th-group-header {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .th-group-header-top {
@@ -516,11 +485,6 @@ body.light .th-group-header {
   text-shadow: 0 0 6px rgba(127, 255, 107, 0.4);
 }
 
-/* Group children (collapsible) — hierarchy line matches ThingCounter.
-   overflow: visible on the parent .th-group is required for sticky
-   to work — sticky needs an overflow:visible ancestor to scroll relative
-   to the viewport. .th-group has no overflow set (defaults to visible),
-   so this works correctly without any extra rules. */
 .th-group-children {
   margin-left: 18px;
   margin-top: 5px;

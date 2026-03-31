@@ -63,7 +63,8 @@ import {
     closeConfirm,
     confirmDelete,
 } from './modal.js';
-import {initAuth} from '../../common/auth-ui.js';
+import {initAuth, showCollisionModal} from '../../common/auth-ui.js';
+import {attachLongPress} from '../../common/utils.js';
 
 // ═══════════════════════════════════════════════
 // Module-level state
@@ -145,7 +146,7 @@ async function selectGame(id) {
     // Check for collision before rendering
     const {game: loadedGame, collision} = await loadGame(selectedGameId);
     if (collision) {
-        showCollisionModal(selectedGameId, loadedGame.name, collision, async () => {
+        showCollisionModal(selectedGameId, loadedGame.name, collision, resolveCollision, async () => {
             const fresh = await loadData();
             doRenderMain(fresh);
         });
@@ -158,68 +159,6 @@ function restoreSelectedGame(data) {
     const saved = localStorage.getItem(STORAGE_SELECTED);
     if (saved && data.games.find(g => g.id === saved)) return saved;
     return null;
-}
-
-// ── Collision modal ──
-
-function showCollisionModal(gameId, gameName, collision, onResolved) {
-    let overlay = document.getElementById('collisionOverlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'collisionOverlay';
-        overlay.className = 'collision-overlay';
-        document.body.appendChild(overlay);
-    }
-
-    const fmtTime = iso => {
-        if (!iso) return '—';
-        return new Date(iso).toLocaleString(undefined, {
-            month: 'short', day: 'numeric', year: 'numeric',
-            hour: '2-digit', minute: '2-digit',
-        });
-    };
-
-    overlay.innerHTML = `
-        <div class="collision-box">
-            <div class="collision-title">⚠ Data Conflict</div>
-            <div class="collision-game-name">${_escHtml(gameName)}</div>
-            <div class="collision-timestamps">
-                <div class="collision-ts-row">
-                    <span class="collision-ts-label">Local</span>
-                    <span class="collision-ts-value">${fmtTime(collision.localTime)}</span>
-                </div>
-                <div class="collision-ts-row">
-                    <span class="collision-ts-label">Cloud</span>
-                    <span class="collision-ts-value">${fmtTime(collision.remoteTime)}</span>
-                </div>
-            </div>
-            <div class="collision-actions">
-                <button class="btn btn-ghost" id="collisionUseLocal">Use Local</button>
-                <button class="btn btn-primary" id="collisionUseRemote">Use Cloud</button>
-            </div>
-        </div>
-    `;
-    overlay.classList.add('open');
-
-    document.getElementById('collisionUseLocal').addEventListener('click', async () => {
-        overlay.classList.remove('open');
-        await resolveCollision(gameId, 'local', null);
-        onResolved();
-    });
-
-    document.getElementById('collisionUseRemote').addEventListener('click', async () => {
-        overlay.classList.remove('open');
-        await resolveCollision(gameId, 'remote', collision.remoteData);
-        onResolved();
-    });
-}
-
-function _escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 // ═══════════════════════════════════════════════
@@ -309,49 +248,6 @@ async function resetNodeStep(nodeId) {
     await saveData(data);
     refreshCounterCard(nodeId, node, nodeEditActive, callbacks);
     await syncFocusIfOpen(nodeId);
-}
-
-// ═══════════════════════════════════════════════
-// Long-press helper
-// ═══════════════════════════════════════════════
-
-function attachLongPress(el, callback) {
-    let timer = null;
-    let startX = 0;
-    let startY = 0;
-    const THRESHOLD = 10;
-
-    el.addEventListener('pointerdown', e => {
-        startX = e.clientX;
-        startY = e.clientY;
-        timer = setTimeout(() => {
-            timer = null;
-            callback();
-        }, 500);
-    });
-
-    el.addEventListener('pointermove', e => {
-        if (!timer) return;
-        const dx = Math.abs(e.clientX - startX);
-        const dy = Math.abs(e.clientY - startY);
-        if (dx > THRESHOLD || dy > THRESHOLD) {
-            clearTimeout(timer);
-            timer = null;
-        }
-    });
-
-    el.addEventListener('pointerup', () => {
-        if (timer) {
-            clearTimeout(timer);
-            timer = null;
-        }
-    });
-    el.addEventListener('pointerleave', () => {
-        if (timer) {
-            clearTimeout(timer);
-            timer = null;
-        }
-    });
 }
 
 // ═══════════════════════════════════════════════

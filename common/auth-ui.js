@@ -1,6 +1,7 @@
 // common/auth-ui.js
 // Auth UI — injects the login/register/reset overlay and wires the 👤 header button.
 // Call initAuth() from main.js init, after initHeader() has run.
+// Also exports showCollisionModal — used by tools with hybrid storage.
 
 import {
     initAuthSession,
@@ -12,6 +13,7 @@ import {
     signOut,
     resetPassword,
 } from './auth.js';
+import {escHtml} from './utils.js';
 
 // ── localStorage key ──
 
@@ -48,6 +50,63 @@ export async function initAuth() {
         if (popover && !popover.contains(e.target) && e.target !== btn) {
             popover.classList.remove('open');
         }
+    });
+}
+
+// ── Collision modal ──
+// Shows a prompt when local and cloud data have diverged.
+// onResolved is called after the user picks a side; the caller is responsible
+// for re-loading and re-rendering with the winning data.
+
+export function showCollisionModal(gameId, gameName, collision, resolveCollision, onResolved) {
+    let overlay = document.getElementById('collisionOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'collisionOverlay';
+        overlay.className = 'collision-overlay';
+        document.body.appendChild(overlay);
+    }
+
+    const fmtTime = iso => {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleString(undefined, {
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+        });
+    };
+
+    overlay.innerHTML = `
+        <div class="collision-box">
+            <div class="collision-title">⚠ Data Conflict</div>
+            <div class="collision-game-name">${escHtml(gameName)}</div>
+            <div class="collision-timestamps">
+                <div class="collision-ts-row">
+                    <span class="collision-ts-label">Local</span>
+                    <span class="collision-ts-value">${fmtTime(collision.localTime)}</span>
+                </div>
+                <div class="collision-ts-row">
+                    <span class="collision-ts-label">Cloud</span>
+                    <span class="collision-ts-value">${fmtTime(collision.remoteTime)}</span>
+                </div>
+            </div>
+            <div class="collision-actions">
+                <button class="btn btn-ghost" id="collisionUseLocal">Use Local</button>
+                <button class="btn btn-primary" id="collisionUseRemote">Use Cloud</button>
+            </div>
+        </div>
+    `;
+    overlay.classList.add('open');
+
+    document.getElementById('collisionUseLocal').addEventListener('click', async () => {
+        overlay.classList.remove('open');
+        await resolveCollision(gameId, 'local', null);
+        onResolved();
+    });
+
+    document.getElementById('collisionUseRemote').addEventListener('click', async () => {
+        overlay.classList.remove('open');
+        await resolveCollision(gameId, 'remote', collision.remoteData);
+        onResolved();
     });
 }
 
@@ -117,7 +176,7 @@ function _renderPopover() {
 
     if (user) {
         popover.innerHTML = `
-            <div class="auth-popover-email">${_escHtml(user.email)}</div>
+            <div class="auth-popover-email">${escHtml(user.email)}</div>
             <button class="auth-popover-btn" id="authSignOutBtn">Sign out</button>
             <div class="auth-popover-privacy">
                 <a href="#" id="authPrivacyLink">Privacy notice</a>
@@ -439,14 +498,6 @@ function _friendlyError(msg) {
     if (msg.includes('User already registered')) return 'An account with this email already exists.';
     if (msg.includes('Password should be')) return 'Password must be at least 6 characters.';
     return msg;
-}
-
-function _escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 // ── DOM injection ──

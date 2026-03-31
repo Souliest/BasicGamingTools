@@ -6,10 +6,9 @@
 // Render — section builders and DOM orchestration
 // ═══════════════════════════════════════════════
 
+import {escHtml, attachLongPress} from '../../common/utils.js';
+
 // ── Trophy weights (Sony official point values) ──
-// Used for weighted progress bar and percentage only.
-// Platinum is excluded from weighted progress (Sony convention).
-// Fraction always uses raw counts including platinum.
 const TROPHY_WEIGHTS = {bronze: 15, silver: 30, gold: 90, platinum: 0};
 
 const TIERS = {
@@ -79,7 +78,6 @@ export function computeStats(groups, trophyState) {
         }
     }
 
-    // Math.floor matches PSN convention: tantalizingly close never rounds up to 100%
     const pct = weightedTotal > 0 ? Math.floor((weightedEarned / weightedTotal) * 100) : 0;
 
     return {
@@ -120,7 +118,6 @@ export function computeGroupStats(group, trophyState) {
         }
     }
 
-    // Math.floor matches PSN convention: tantalizingly close never rounds up to 100%
     const pct = weightedTotal > 0 ? Math.floor((weightedEarned / weightedTotal) * 100) : 0;
     isComplete = total > 0 && earned === total;
 
@@ -128,15 +125,8 @@ export function computeGroupStats(group, trophyState) {
 }
 
 // ── Tier chips row ──
-// Each chip shows: [icon] [earned count] [/ total] for gold, silver, bronze.
-// Earned count is primary — full size, tier color.
-// Separator and total are secondary — 80% size, same tier color at 0.65 opacity.
-// Platinum chip shows icon only (no count) — there is always exactly one platinum.
-// Platinum icon is rendered 3px larger than peer icons and bottom-aligned with them.
-// Order is always P → G → S → B.
 
 function renderTierChips(tierEarned, tierTotal, size, hasPlatinum, platinumEarned, leadingIndicator = '') {
-    // Platinum icon is slightly larger than its peers for visual distinction.
     const platSize = size + 3;
     const platChip = hasPlatinum
         ? `<span class="tier-chip tier-chip-plat">${trophyIcon('platinum', platinumEarned, platSize)}</span>`
@@ -204,7 +194,6 @@ export function renderMain(selectedGameId, personalData, catalogEntry, callbacks
 
     const stats = computeStats(catalogEntry.groups, game.trophyState);
 
-    // If only one group, always show flat — group header would just duplicate game header
     const isSingleGroup = catalogEntry.groups.length === 1;
     const effectiveViewState = isSingleGroup
         ? {...game.viewState, ungrouped: true}
@@ -227,18 +216,18 @@ export function renderMain(selectedGameId, personalData, catalogEntry, callbacks
 }
 
 // ─────────────────────────────────────────────
-// renderGameHeader — top-level summary panel
+// renderGameHeader
 // ─────────────────────────────────────────────
 
 export function renderGameHeader(game, catalogEntry, stats) {
     return `<div class="th-game-header panel" id="gameHeader">
         <div class="th-game-title-row">
             ${catalogEntry.iconUrl
-        ? `<img class="th-game-icon" src="${_escHtml(catalogEntry.iconUrl)}"
+        ? `<img class="th-game-icon" src="${escHtml(catalogEntry.iconUrl)}"
                         alt="" aria-hidden="true" data-icon="gameHeader">`
         : ''}
-            <div class="th-game-title">${_escHtml(game.name)}</div>
-            <span class="th-platform-badge">${_escHtml(game.platform)}</span>
+            <div class="th-game-title">${escHtml(game.name)}</div>
+            <span class="th-platform-badge">${escHtml(game.platform)}</span>
         </div>
         <div class="th-header-stats">
             <div class="th-stats-chips-row">
@@ -254,7 +243,7 @@ export function renderGameHeader(game, catalogEntry, stats) {
 }
 
 // ─────────────────────────────────────────────
-// renderToolbar — filter / sort / ungroup
+// renderToolbar
 // ─────────────────────────────────────────────
 
 export function renderToolbar(viewState, callbacks, isSingleGroup = false) {
@@ -301,7 +290,7 @@ export function renderToolbar(viewState, callbacks, isSingleGroup = false) {
 }
 
 // ─────────────────────────────────────────────
-// renderTrophyList — groups or flat list
+// renderTrophyList
 // ─────────────────────────────────────────────
 
 function renderTrophyList(game, catalogEntry, stats, callbacks, effectiveViewState) {
@@ -337,7 +326,7 @@ function renderFlatList(game, catalogEntry, callbacks, viewState) {
 }
 
 // ─────────────────────────────────────────────
-// renderGroup — one DLC section
+// renderGroup
 // ─────────────────────────────────────────────
 
 export function renderGroup(group, game, groupStats, callbacks, viewState) {
@@ -381,9 +370,9 @@ export function renderGroup(group, game, groupStats, callbacks, viewState) {
     const isCollapsed = collapsedGroups.includes(group.groupId);
     const toggleChar = isCollapsed ? '▶' : '▼';
 
-    return `<div class="th-group" data-group-id="${_escHtml(group.groupId)}">
+    return `<div class="th-group" data-group-id="${escHtml(group.groupId)}">
         ${renderGroupHeader(group, groupStats, toggleChar)}
-        <div class="th-group-children${isCollapsed ? ' collapsed' : ''}" id="group-body-${_escHtml(group.groupId)}">
+        <div class="th-group-children${isCollapsed ? ' collapsed' : ''}" id="group-body-${escHtml(group.groupId)}">
             ${isEmpty
         ? `<div class="th-empty-filter">No ${vs.filter} trophies in this group.</div>`
         : ordered.map(t => t._divider
@@ -396,7 +385,7 @@ export function renderGroup(group, game, groupStats, callbacks, viewState) {
 }
 
 // ─────────────────────────────────────────────
-// renderGroupHeader — branch-node style
+// renderGroupHeader
 // ─────────────────────────────────────────────
 
 export function renderGroupHeader(group, groupStats, toggleChar = '▼') {
@@ -407,10 +396,10 @@ export function renderGroupHeader(group, groupStats, toggleChar = '▼') {
 
     const completeClass = groupStats.isComplete ? ' th-group-complete' : '';
 
-    return `<div class="th-group-header${completeClass}" data-group-id="${_escHtml(group.groupId)}">
+    return `<div class="th-group-header${completeClass}" data-group-id="${escHtml(group.groupId)}">
         <div class="th-group-header-top">
             <span class="th-group-toggle" aria-hidden="true">${toggleChar}</span>
-            <span class="th-group-name">${_escHtml(group.name)}</span>
+            <span class="th-group-name">${escHtml(group.name)}</span>
         </div>
         <div class="th-group-header-stats">
             <div class="th-stats-chips-row">
@@ -426,7 +415,7 @@ export function renderGroupHeader(group, groupStats, toggleChar = '▼') {
 }
 
 // ─────────────────────────────────────────────
-// renderTrophyRow — leaf node
+// renderTrophyRow
 // ─────────────────────────────────────────────
 
 export function renderTrophyRow(trophy, trophyState) {
@@ -456,13 +445,13 @@ export function renderTrophyRow(trophy, trophyState) {
         </button>
         <div class="th-trophy-body">
             <div class="th-trophy-name-row">
-                <span class="th-trophy-name">${_escHtml(trophy.name)}</span>
+                <span class="th-trophy-name">${escHtml(trophy.name)}</span>
                 <span class="th-tier-badge">
                     ${trophyIcon(trophy.type, earned, 14)}
                     <span class="th-tier-label" style="color:${tierColor}">${cfg.label.toUpperCase()}</span>
                 </span>
             </div>
-            <div class="th-trophy-detail">${_escHtml(trophy.detail || '')}</div>
+            <div class="th-trophy-detail">${escHtml(trophy.detail || '')}</div>
             ${orphaned ? `<div class="th-orphaned-label">⚠ No longer in PSN data</div>` : ''}
         </div>
         ${pinned ? `<span class="th-pin-indicator" aria-label="Pinned">📌</span>` : ''}
@@ -470,7 +459,7 @@ export function renderTrophyRow(trophy, trophyState) {
 }
 
 // ─────────────────────────────────────────────
-// Targeted updates (avoid full re-render on earn/pin)
+// Targeted updates
 // ─────────────────────────────────────────────
 
 export function refreshTrophyRow(trophyId, trophy, trophyState, callbacks) {
@@ -620,43 +609,7 @@ function _wireTrophyRows(game, catalogEntry, callbacks) {
 function _wireLongPress(game, catalogEntry, callbacks) {
     document.querySelectorAll('.th-trophy-row').forEach(row => {
         const trophyId = row.dataset.trophyId;
-        _attachLongPress(row, () => callbacks.onTogglePinned(trophyId));
-    });
-}
-
-function _attachLongPress(el, callback) {
-    let timer = null;
-    let startX = 0;
-    let startY = 0;
-    const THRESHOLD = 10;
-
-    el.addEventListener('pointerdown', e => {
-        startX = e.clientX;
-        startY = e.clientY;
-        timer = setTimeout(() => {
-            timer = null;
-            callback();
-        }, 500);
-    });
-    el.addEventListener('pointermove', e => {
-        if (!timer) return;
-        if (Math.abs(e.clientX - startX) > THRESHOLD ||
-            Math.abs(e.clientY - startY) > THRESHOLD) {
-            clearTimeout(timer);
-            timer = null;
-        }
-    });
-    el.addEventListener('pointerup', () => {
-        if (timer) {
-            clearTimeout(timer);
-            timer = null;
-        }
-    });
-    el.addEventListener('pointerleave', () => {
-        if (timer) {
-            clearTimeout(timer);
-            timer = null;
-        }
+        attachLongPress(row, () => callbacks.onTogglePinned(trophyId));
     });
 }
 
@@ -667,18 +620,10 @@ function _attachLongPress(el, callback) {
 function renderSectionDivider(label) {
     const color = label === 'Earned' ? 'var(--accent3)' : '#ff4444';
     return `<div class="th-section-divider" style="border-color:${color}" aria-hidden="true">
-        <span class="th-section-divider-label" style="color:${color}">${_escHtml(label)}</span>
+        <span class="th-section-divider-label" style="color:${color}">${escHtml(label)}</span>
     </div>`;
 }
 
 function renderEmptyFilter(filter) {
     return `<div class="th-empty-filter">No ${filter} trophies.</div>`;
-}
-
-function _escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }

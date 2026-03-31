@@ -21,8 +21,9 @@ import {
     openAddGameModal, closeSearchModal,
     openGameSettingsModal, closeGameSettingsModal,
 } from './modal.js';
-import {initAuth} from '../../common/auth-ui.js';
+import {initAuth, showCollisionModal} from '../../common/auth-ui.js';
 import {getUser} from '../../common/auth.js';
+import {supabase} from '../../common/supabase.js';
 
 // ── Module-level state ──
 
@@ -51,23 +52,13 @@ function _scheduleSync() {
 // Realtime incoming update handler
 // Called by storage.js when a newer remote version of a game arrives.
 // Skipped if a local debounce timer is running — local changes take priority.
-//
-// viewState (filter, sort, ungrouped, collapsedGroups) is intentionally
-// excluded from the merge. trophyState syncs live across devices; viewState
-// is local-only at runtime. Each device keeps its own display preferences
-// during a session. viewState is still written to Supabase on every save
-// so it is restored on initial load — it just never overwrites the current
-// session's display preferences when a Realtime event arrives.
 // ═══════════════════════════════════════════════
 
 function _onRemoteUpdate(remoteGame, remoteUpdatedAt) {
-    // If we have unsaved local changes in flight, ignore the remote update.
-    // Our pending write will reach Supabase shortly and supersede it.
     if (_syncTimer !== null) return;
 
     const localGame = _personalData.games.find(g => g.id === remoteGame.id);
 
-    // If the game isn't in our local list at all, add it.
     if (!localGame) {
         _personalData.games.push({...remoteGame, last_modified: remoteUpdatedAt});
         localSave(_personalData);
@@ -75,23 +66,18 @@ function _onRemoteUpdate(remoteGame, remoteUpdatedAt) {
         return;
     }
 
-    // Compare timestamps — only apply if the remote is strictly newer.
     const localTime = localGame.last_modified ? new Date(localGame.last_modified) : new Date(0);
     const remoteTime = new Date(remoteUpdatedAt);
     if (remoteTime <= localTime) return;
 
-    // Apply the remote state — preserving the local viewState so display
-    // preferences (filter, sort, ungrouped, collapsedGroups) are not
-    // overwritten mid-session by another device's choices.
     const idx = _personalData.games.findIndex(g => g.id === remoteGame.id);
     _personalData.games[idx] = {
         ...remoteGame,
         last_modified: remoteUpdatedAt,
-        viewState: localGame.viewState,  // keep this device's display preferences
+        viewState: localGame.viewState,
     };
     localSave(_personalData);
 
-    // Re-render only if this game is currently selected.
     if (selectedGameId === remoteGame.id) {
         _doRenderMain();
     }
@@ -115,14 +101,10 @@ function restoreSelectedGame(data) {
 async function renderSelector() {
     const data = await loadData();
     _personalData = data;
-
     _rebuildSelector();
     return data;
 }
 
-// _rebuildSelector — rebuilds the dropdown from current _personalData without
-// hitting Supabase. Used by the Realtime handler to update the selector when
-// a new game arrives from another device.
 function _rebuildSelector() {
     const sel = document.getElementById('gameSelect');
     sel.innerHTML = '<option value="">— select a game —</option>';
@@ -163,7 +145,7 @@ async function selectGame(id) {
     // Collision detection
     const {game, collision} = await loadGame(selectedGameId);
     if (collision) {
-        _showCollisionModal(selectedGameId, game.name, collision, async () => {
+        showCollisionModal(selectedGameId, game.name, collision, resolveCollision, async () => {
             _personalData = await loadData();
             await _loadCatalogAndRender();
         });
@@ -223,18 +205,15 @@ function _toggleEarned(trophyId) {
     game.trophyState[trophyId] = {
         ...state,
         earned: newEarned,
-        pinned: newEarned ? false : state.pinned,  // auto-unpin when earned
+        pinned: newEarned ? false : state.pinned,
     };
 
-    // Stamp and write to localStorage immediately — synchronous, no await
     game.last_modified = new Date().toISOString();
     localSave(_personalData);
 
     if (game.viewState.filter !== 'all') {
-        // Filter active — full re-render so sort order updates immediately
         _doRenderMain();
     } else {
-        // No filter — targeted updates are sufficient and faster
         const trophy = _findTrophyInCatalog(trophyId);
         if (trophy) refreshTrophyRow(trophyId, trophy, game.trophyState, _callbacks());
 
@@ -255,7 +234,7 @@ function _togglePinned(trophyId) {
     if (!game) return;
 
     const state = game.trophyState[trophyId] || {earned: false, pinned: false};
-    if (state.earned) return;  // can't pin earned trophies
+    if (state.earned) return;
 
     game.trophyState[trophyId] = {...state, pinned: !state.pinned};
 
@@ -294,7 +273,6 @@ function _toggleGroup(groupId) {
     localSave(_personalData);
     _scheduleSync();
 
-    // Targeted DOM update — no full re-render needed for collapse toggle
     const body = document.getElementById(`group-body-${groupId}`);
     const header = document.querySelector(`.th-group-header[data-group-id="${groupId}"]`);
     const toggle = header && header.querySelector('.th-group-toggle');
@@ -406,66 +384,10 @@ function _refreshGame(newCatalogEntry) {
 
     _catalogEntry = newCatalogEntry;
 
-    saveData(_personalData);  // fire and forget — modal stays open for message
+    saveData(_personalData);
     _doRenderMain();
 
     return {addedCount, orphanedCount};
-}
-
-// ═══════════════════════════════════════════════
-// Collision modal
-// ═══════════════════════════════════════════════
-
-function _showCollisionModal(gameId, gameName, collision, onResolved) {
-    let overlay = document.getElementById('collisionOverlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'collisionOverlay';
-        overlay.className = 'collision-overlay';
-        document.body.appendChild(overlay);
-    }
-
-    const fmtTime = iso => {
-        if (!iso) return '—';
-        return new Date(iso).toLocaleString(undefined, {
-            month: 'short', day: 'numeric', year: 'numeric',
-            hour: '2-digit', minute: '2-digit',
-        });
-    };
-
-    overlay.innerHTML = `
-        <div class="collision-box">
-            <div class="collision-title">⚠ Data Conflict</div>
-            <div class="collision-game-name">${_escHtml(gameName)}</div>
-            <div class="collision-timestamps">
-                <div class="collision-ts-row">
-                    <span class="collision-ts-label">Local</span>
-                    <span class="collision-ts-value">${fmtTime(collision.localTime)}</span>
-                </div>
-                <div class="collision-ts-row">
-                    <span class="collision-ts-label">Cloud</span>
-                    <span class="collision-ts-value">${fmtTime(collision.remoteTime)}</span>
-                </div>
-            </div>
-            <div class="collision-actions">
-                <button class="btn btn-ghost" id="collisionUseLocal">Use Local</button>
-                <button class="btn btn-primary" id="collisionUseRemote">Use Cloud</button>
-            </div>
-        </div>
-    `;
-    overlay.classList.add('open');
-
-    document.getElementById('collisionUseLocal').addEventListener('click', async () => {
-        overlay.classList.remove('open');
-        await resolveCollision(gameId, 'local', null);
-        onResolved();
-    });
-    document.getElementById('collisionUseRemote').addEventListener('click', async () => {
-        overlay.classList.remove('open');
-        await resolveCollision(gameId, 'remote', collision.remoteData);
-        _personalData = await loadData();
-        onResolved();
-    });
 }
 
 // ═══════════════════════════════════════════════
@@ -498,32 +420,18 @@ window.closeSearchModal = closeSearchModal;
 window.openGameSettings = () => _openGameSettings();
 window.closeGameSettings = closeGameSettingsModal;
 
-// Escape key dismissal
 document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     closeSearchModal();
     closeGameSettingsModal();
 });
 
-// Backdrop tap dismissal
 document.getElementById('searchModal').addEventListener('click', function (e) {
     if (e.target === this) closeSearchModal();
 });
 document.getElementById('gameSettingsModal').addEventListener('click', function (e) {
     if (e.target === this) closeGameSettingsModal();
 });
-
-// ═══════════════════════════════════════════════
-// Utility
-// ═══════════════════════════════════════════════
-
-function _escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
 
 // ═══════════════════════════════════════════════
 // Init
@@ -543,13 +451,11 @@ function _escHtml(str) {
         _doRenderMain();
     }
 
-    // Wire Realtime subscription if enabled and user is signed in.
     const user = getUser();
     if (REALTIME_ENABLED && user) {
         subscribeToGameChanges(user.id, _onRemoteUpdate);
     }
 
-    // Re-wire subscription on auth state changes.
     supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN' && REALTIME_ENABLED) {
             subscribeToGameChanges(session.user.id, _onRemoteUpdate);

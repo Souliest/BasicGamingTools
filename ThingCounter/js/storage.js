@@ -31,8 +31,9 @@ function localSave(data) {
 
 // ── loadData ──
 // Returns { games: [...] } from localStorage immediately.
-// If online, fetches the game list (id, name, updated_at) from Supabase and
-// merges any games that exist remotely but not locally.
+// If online, fetches the game list from Supabase and merges any games that
+// exist remotely but not locally — using a single batched query instead of
+// one round trip per missing game.
 
 export async function loadData() {
     const local = localLoad();
@@ -47,23 +48,26 @@ export async function loadData() {
 
         if (error || !rows) return local;
 
-        let changed = false;
-        for (const row of rows) {
-            const exists = local.games.find(g => g.id === row.id);
-            if (!exists) {
-                const {data: full} = await supabase
-                    .from(TABLE)
-                    .select('data')
-                    .eq('id', row.id)
-                    .single();
-                if (full && full.data) {
-                    local.games.push({...full.data, last_modified: row.updated_at});
-                    changed = true;
+        const missingIds = rows
+            .filter(row => !local.games.find(g => g.id === row.id))
+            .map(row => row.id);
+
+        if (missingIds.length > 0) {
+            const {data: fullRows} = await supabase
+                .from(TABLE)
+                .select('id, data, updated_at')
+                .in('id', missingIds)
+                .eq('user_id', user.id);
+
+            if (fullRows) {
+                for (const row of fullRows) {
+                    if (row.data) {
+                        local.games.push({...row.data, last_modified: row.updated_at});
+                    }
                 }
+                localSave(local);
             }
         }
-
-        if (changed) localSave(local);
     } catch {
         // Network unavailable — return local silently
     }
@@ -72,8 +76,6 @@ export async function loadData() {
 }
 
 // ── loadGame ──
-// Loads a single game's full data. Checks for collision between local and remote.
-// Returns { game, collision } where collision is null or { localTime, remoteTime, remoteData }.
 
 export async function loadGame(gameId) {
     const local = localLoad();

@@ -28,7 +28,7 @@ import {
     closeConfirm,
     confirmDelete,
 } from './modal.js';
-import {initAuth} from '../../common/auth-ui.js';
+import {initAuth, showCollisionModal} from '../../common/auth-ui.js';
 
 // ── Module-level state ──
 let selectedGameId = null;
@@ -79,72 +79,10 @@ async function selectGame(id) {
     // Check for collision before rendering — only on select, never on interval
     const {game, collision} = await loadGame(id);
     if (collision) {
-        showCollisionModal(id, game.name, collision, () => renderMain());
+        showCollisionModal(id, game.name, collision, resolveCollision, () => renderMain());
     } else {
         renderMain();
     }
-}
-
-// ── Collision modal ──
-
-function showCollisionModal(gameId, gameName, collision, onResolved) {
-    let overlay = document.getElementById('collisionOverlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'collisionOverlay';
-        overlay.className = 'collision-overlay';
-        document.body.appendChild(overlay);
-    }
-
-    const fmtTime = iso => {
-        if (!iso) return '—';
-        return new Date(iso).toLocaleString(undefined, {
-            month: 'short', day: 'numeric', year: 'numeric',
-            hour: '2-digit', minute: '2-digit',
-        });
-    };
-
-    overlay.innerHTML = `
-        <div class="collision-box">
-            <div class="collision-title">⚠ Data Conflict</div>
-            <div class="collision-game-name">${_escHtml(gameName)}</div>
-            <div class="collision-timestamps">
-                <div class="collision-ts-row">
-                    <span class="collision-ts-label">Local</span>
-                    <span class="collision-ts-value">${fmtTime(collision.localTime)}</span>
-                </div>
-                <div class="collision-ts-row">
-                    <span class="collision-ts-label">Cloud</span>
-                    <span class="collision-ts-value">${fmtTime(collision.remoteTime)}</span>
-                </div>
-            </div>
-            <div class="collision-actions">
-                <button class="btn btn-ghost" id="collisionUseLocal">Use Local</button>
-                <button class="btn btn-primary" id="collisionUseRemote">Use Cloud</button>
-            </div>
-        </div>
-    `;
-    overlay.classList.add('open');
-
-    document.getElementById('collisionUseLocal').addEventListener('click', async () => {
-        overlay.classList.remove('open');
-        await resolveCollision(gameId, 'local', null);
-        onResolved();
-    });
-
-    document.getElementById('collisionUseRemote').addEventListener('click', async () => {
-        overlay.classList.remove('open');
-        await resolveCollision(gameId, 'remote', collision.remoteData);
-        onResolved();
-    });
-}
-
-function _escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 // ── Update level ──

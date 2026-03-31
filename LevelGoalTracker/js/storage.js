@@ -28,10 +28,9 @@ function localSave(data) {
 
 // ── loadData ──
 // Returns { games: [...] } from localStorage immediately.
-// If online, fetches the game list (id, name, updated_at) from Supabase and
-// merges any games that exist remotely but not locally.
-// Collision detection (timestamp mismatch) is handled per-game in main.js
-// when the user selects a game — not here.
+// If online, fetches the game list from Supabase and merges any games that
+// exist remotely but not locally — using a single batched query instead of
+// one round trip per missing game.
 
 export async function loadData() {
     const local = localLoad();
@@ -46,25 +45,28 @@ export async function loadData() {
 
         if (error || !rows) return local;
 
-        // Merge remote games into local if they are missing locally
-        let changed = false;
-        for (const row of rows) {
-            const exists = local.games.find(g => g.id === row.id);
-            if (!exists) {
-                // Fetch full game data for games we don't have locally
-                const {data: full} = await supabase
-                    .from(TABLE)
-                    .select('data')
-                    .eq('id', row.id)
-                    .single();
-                if (full && full.data) {
-                    local.games.push({...full.data, last_modified: row.updated_at});
-                    changed = true;
+        // Identify which remote games are missing locally
+        const missingIds = rows
+            .filter(row => !local.games.find(g => g.id === row.id))
+            .map(row => row.id);
+
+        if (missingIds.length > 0) {
+            // Fetch all missing games in one query
+            const {data: fullRows} = await supabase
+                .from(TABLE)
+                .select('id, data, updated_at')
+                .in('id', missingIds)
+                .eq('user_id', user.id);
+
+            if (fullRows) {
+                for (const row of fullRows) {
+                    if (row.data) {
+                        local.games.push({...row.data, last_modified: row.updated_at});
+                    }
                 }
+                localSave(local);
             }
         }
-
-        if (changed) localSave(local);
     } catch {
         // Network unavailable — return local silently
     }
@@ -103,7 +105,7 @@ export async function loadGame(gameId) {
         }
 
         const diffMs = Math.abs(localTime - remoteTime);
-        const THRESHOLD_MS = 5000; // 5 seconds — accounts for write latency
+        const THRESHOLD_MS = 5000;
 
         if (diffMs <= THRESHOLD_MS) {
             return {game: localGame, collision: null};
@@ -172,8 +174,6 @@ export async function saveGame(game) {
 }
 
 // ── resolveCollision ──
-// Called after the user makes a choice in the collision modal.
-// winner: 'local' | 'remote'
 
 export async function resolveCollision(gameId, winner, remoteData) {
     const local = localLoad();
@@ -189,7 +189,6 @@ export async function resolveCollision(gameId, winner, remoteData) {
 }
 
 // ── deleteGame ──
-// Removes a game locally and from Supabase.
 
 export async function deleteGame(gameId) {
     const local = localLoad();

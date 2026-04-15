@@ -3,6 +3,8 @@
   max-width: 640px;
   margin: 0 auto;
   padding: 12px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 /* ── Game selector bar ── */
@@ -15,6 +17,7 @@
 
 select#gameSelect {
   flex: 1;
+  min-width: 0;
   background: var(--input-bg);
   color: var(--text);
   border: 1px solid var(--border);

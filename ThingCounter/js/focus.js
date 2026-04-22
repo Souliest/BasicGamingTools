@@ -5,6 +5,7 @@ import {saveData, STORAGE_KEY} from './storage.js';
 import {cacheSet, TOOL_CONFIG} from '../../common/migrations.js';
 import {DEFAULT_COLOR} from './swatches.js';
 import {findNode, clampValue, initialValue, fillPercent} from './nodes.js';
+import {openModal as trapOpen, closeModal as trapClose} from '../../common/utils.js';
 
 const CFG = TOOL_CONFIG.thingCounter;
 
@@ -45,7 +46,9 @@ export function openFocusModal(nodeId, selectedGameId) {
     _selectedGameId = selectedGameId;
     document.getElementById('focusName').textContent = node.name;
     _updateFocusDisplay(stored);
-    document.getElementById('focusModal').classList.add('open');
+    const overlay = document.getElementById('focusModal');
+    overlay.classList.add('open');
+    trapOpen(overlay, document.activeElement);
 }
 
 // Public — called after external value changes that don't go through this module.
@@ -110,7 +113,9 @@ function _updateFocusDisplay(stored) {
 
 export function closeFocusModal() {
     focusNodeId = null;
-    document.getElementById('focusModal').classList.remove('open');
+    const overlay = document.getElementById('focusModal');
+    overlay.classList.remove('open');
+    trapClose(overlay);
 }
 
 export function activateFocusValueInput() {

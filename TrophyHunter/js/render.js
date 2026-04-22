@@ -113,7 +113,7 @@ export function renderMain(selectedGameId, personalData, selectedGameBlob, catal
     content.innerHTML = [
         renderGameHeader(game, catalogEntry, stats),
         renderToolbar(effectiveViewState, callbacks, isSingleGroup),
-        renderTrophyList(game, catalogEntry, stats, callbacks, effectiveViewState),
+        `<div id="th-trophy-list">${renderTrophyList(game, catalogEntry, stats, callbacks, effectiveViewState)}</div>`,
     ].join('');
 
     const gameIcon = content.querySelector('[data-icon="gameHeader"]');
@@ -124,6 +124,32 @@ export function renderMain(selectedGameId, personalData, selectedGameBlob, catal
     _wireToolbar(game, callbacks, isSingleGroup);
     _wireTrophyRows(callbacks);
     _wireLongPress(callbacks);
+}
+
+// ── refreshTrophyList ──────────────────────────────────────────────────────
+// Replaces only the trophy list portion of the view, leaving the game header
+// and toolbar untouched. Used by _toggleEarned when a filter is active to
+// avoid the brief flash that a full re-render produces by destroying and
+// recreating the toolbar <select> elements.
+
+export function refreshTrophyList(game, catalogEntry, callbacks) {
+    const container = document.getElementById('th-trophy-list');
+    if (!container) return;
+
+    const stats = computeStats(catalogEntry.groups, game.trophyState);
+    const isSingleGroup = catalogEntry.groups.length === 1;
+    const effectiveViewState = isSingleGroup
+        ? {...game.viewState, ungrouped: true}
+        : game.viewState;
+
+    container.innerHTML = renderTrophyList(game, catalogEntry, stats, callbacks, effectiveViewState);
+    _wireTrophyRows(callbacks);
+    _wireLongPress(callbacks);
+
+    // Group-header click listeners live on the newly rendered headers.
+    container.querySelectorAll('.th-group-header').forEach(header => {
+        header.addEventListener('click', () => callbacks.onToggleGroup(header.dataset.groupId));
+    });
 }
 
 // ── renderGameHeader ───────────────────────────────────────────────────────

@@ -137,3 +137,12 @@ export function closeQuickCounter() {
     overlay.classList.remove('open');
     trapClose(overlay);
 }
+
+// Dismisses the modal without resetting the counter state.
+// Used by the backdrop-tap handler — clicking outside preserves the value,
+// only the ✕ button wipes it.
+export function dismissQuickCounter() {
+    const overlay = document.getElementById('quickCounterModal');
+    overlay.classList.remove('open');
+    trapClose(overlay);
+}

@@ -266,7 +266,7 @@
         if (e.target === this) closeFocusModal();
     });
     document.getElementById('quickCounterModal').addEventListener('click', function (e) {
-        if (e.target === this) document.getElementById('quickCounterModal').classList.remove('open');
+        if (e.target === this) dismissQuickCounter();
     });
 </script>
 <script type="module" src="js/main.js"></script>

@@ -40,6 +40,7 @@ import {
     qcReset,
     openQuickCounter,
     closeQuickCounter,
+    dismissQuickCounter,
     qcStep,
     activateQcValueInput,
     onQcValueInput,
@@ -403,6 +404,7 @@ window.focusResetValue = () => focusResetValue((id, node) => refreshCounterCard(
 
 window.openQuickCounter = openQuickCounter;
 window.closeQuickCounter = closeQuickCounter;
+window.dismissQuickCounter = dismissQuickCounter;
 window.qcStep = qcStep;
 window.activateQcValueInput = activateQcValueInput;
 window.onQcValueInput = onQcValueInput;

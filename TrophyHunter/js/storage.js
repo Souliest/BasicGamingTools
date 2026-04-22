@@ -24,8 +24,9 @@ import {supabase} from '../../common/supabase.js';
 import {getUser} from '../../common/auth.js';
 import {
     runMigrations, cacheGet, cacheSet, cacheDelete, updateIndex,
-    TOOL_CONFIG, CURRENT_VERSION,
+    TOOL_CONFIG, CURRENT_VERSION, localLoad,
 } from '../../common/migrations.js';
+import {createRealtimeSubscription} from '../../common/realtime.js';
 import {workerResolve, workerContribute, ORBIS_SEARCH_URL, PROSPERO_SEARCH_URL} from './psn.js';
 
 // ── Storage key constants ─────────────────────────────────────────────────────
@@ -45,34 +46,23 @@ const TABLE_LOOKUP = 'bgt_trophy_hunter_lookup';
 
 export const REALTIME_ENABLED = true;
 
-let _realtimeChannel = null;
+// TrophyHunter's onUpdate signature is (remoteGame, remoteUpdatedAt) rather than
+// the raw payload.new used by LGT/ThingCounter, so we wrap the factory callback
+// to unpack those fields and enforce the REALTIME_ENABLED guard.
+const _rt = createRealtimeSubscription('trophy-hunter-games', TABLE_GAMES);
 
 export function subscribeToGameChanges(userId, onRemoteUpdate) {
-    if (!REALTIME_ENABLED) return;
-    if (!userId) return;
-
-    unsubscribeFromGameChanges();
-
-    _realtimeChannel = supabase
-        .channel('trophy-hunter-games')
-        .on(
-            'postgres_changes',
-            {event: 'UPDATE', schema: 'public', table: TABLE_GAMES, filter: `user_id=eq.${userId}`},
-            payload => {
-                const remoteGame = payload.new?.data;
-                const remoteUpdatedAt = payload.new?.updated_at;
-                if (!remoteGame || !remoteUpdatedAt) return;
-                onRemoteUpdate(remoteGame, remoteUpdatedAt);
-            }
-        )
-        .subscribe();
+    if (!REALTIME_ENABLED || !userId) return;
+    _rt.subscribe(userId, payload => {
+        const remoteGame = payload?.data;
+        const remoteUpdatedAt = payload?.updated_at;
+        if (!remoteGame || !remoteUpdatedAt) return;
+        onRemoteUpdate(remoteGame, remoteUpdatedAt);
+    });
 }
 
 export function unsubscribeFromGameChanges() {
-    if (_realtimeChannel) {
-        supabase.removeChannel(_realtimeChannel);
-        _realtimeChannel = null;
-    }
+    _rt.unsubscribe();
 }
 
 // ── Title normalisation ───────────────────────────────────────────────────────
@@ -115,14 +105,7 @@ export function normaliseTitle(str) {
 
 // ── Local helpers — personal state ────────────────────────────────────────────
 
-function _localLoad() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) ||
-            {version: CURRENT_VERSION, index: [], blobs: {}, lruOrder: []};
-    } catch {
-        return {version: CURRENT_VERSION, index: [], blobs: {}, lruOrder: []};
-    }
-}
+const _localLoad = () => localLoad(STORAGE_KEY);
 
 export function localSave(stored) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));

@@ -113,11 +113,30 @@ Single home for:
 - `TOOL_CONFIG` — per-tool storage key, legacy key, and index field list.
 - `runMigrations(toolConfig)` — called at the top of every `loadData()` and `loadGame()`. No-op when already current.
 - LRU cache helpers: `cacheGet`, `cacheSet`, `cacheDelete`, `updateIndex`.
+- `localLoad(storageKey)` — canonical localStorage read helper. Returns a fresh v2 skeleton
+  on any failure. Replaces the verbatim `_localLoad()` that previously existed in 8 files
+  across LevelGoalTracker and ThingCounter. Each module keeps a one-line alias:
+  `const _localLoad = () => localLoad(STORAGE_KEY);`
 - Migration transform functions — never deleted.
 
 See `docs/storage.md` for the full storage model and migration guide.
 
 ---
+
+## common/realtime.js
+
+`createRealtimeSubscription(channelPrefix, tableName)` — factory that returns `{ subscribe, unsubscribe }`.
+Replaces the identical Realtime subscription block previously duplicated in all three hybrid tools.
+Each tool's `storage.js` calls the factory once at module load and re-exports the pair:
+
+```js
+const _rt = createRealtimeSubscription('lgt-games', TABLE);
+export const subscribeToGameChanges = _rt.subscribe;
+export const unsubscribeFromGameChanges = _rt.unsubscribe;
+```
+
+TrophyHunter wraps the factory callback to unpack `payload.data` / `payload.updated_at` and
+enforce the `REALTIME_ENABLED` guard, since its `onUpdate` signature differs from the other two tools.
 
 ## common/utils.js
 
@@ -136,7 +155,7 @@ previously-inerted siblings and restores focus to the stored trigger element (if
 Usage pattern (same in all tools):
 
 ```js
-import { openModal as trapOpen, closeModal as trapClose } from '../../common/utils.js';
+import {openModal as trapOpen, closeModal as trapClose} from '../../common/utils.js';
 
 function openMyModal() {
     const overlay = document.getElementById('myOverlay');
@@ -510,6 +529,30 @@ See `docs/trophy-hunter.md` for Worker, PSN search flow, catalog cache, and rend
   by the Action; do not push to it directly.
 - **`escHtml` and `attachLongPress` in `common/utils.js`** — previously duplicated across tools;
   one source is easier to audit and ensures fixes propagate everywhere.
+- **`localLoad(storageKey)` in `common/migrations.js`** — `_localLoad()` was copied verbatim
+  into 8 files across LevelGoalTracker and ThingCounter. The function is trivial but any future
+  change (e.g. bumping the skeleton version, adding error telemetry) would need to be made in
+  all 8 places. `migrations.js` already owns the v2 skeleton shape and `CURRENT_VERSION`, so it
+  is the natural home. Each module keeps a one-line alias to preserve the internal `_localLoad()`
+  call convention without changing call sites.
+- **`common/realtime.js` factory** — the three hybrid tools each had a 20-line Realtime block
+  differing only in channel prefix and table name. A factory returning `{ subscribe, unsubscribe }`
+  reduces that to 3 lines per tool. TrophyHunter's different payload shape and `REALTIME_ENABLED`
+  guard are handled in a thin wrapper in its own `storage.js`, keeping the factory generic.
+- **`renderActions()` parameter removed (LevelGoalTracker)** — `gameId` was passed in but never
+  used inside the function; the actual wiring happens in `wireActions()`. Removing it eliminates
+  a misleading signature and a stale argument at the call site.
+- **`alert()` replaced in ThingCounter `modal-game.js`** — `alert()` blocks the main thread,
+  cannot be styled, breaks in PWA/fullscreen mode on some platforms, and moves focus away from
+  the form. Inline error display using the same `.modal-error` / `role="alert"` pattern already
+  used by LevelGoalTracker and the auth modal is consistent, accessible, and non-disruptive.
+- **`accumulateTrophyStats()` extracted (TrophyHunter)** — `computeStats` and `computeGroupStats`
+  contained identical 30-line accumulation loops differing only in the outer group-iteration.
+  `computeStats` now flat-maps all groups and delegates; `computeGroupStats` delegates and spreads
+  in the `isComplete` flag. Same observable behaviour, half the code to maintain.
+- **Barrel `modal.js` files documented** — both `ThingCounter/js/modal.js` and
+  `TrophyHunter/js/modal.js` are pure re-export barrels. A comment makes the intent explicit so
+  future contributors don't mistake them for the right place to add logic.
 - **`renderSelector()` returns data** — avoids calling `loadData()` twice after every save or delete.
 - **`tickRenderMain` reads localStorage only** — the interval exists solely to roll the midnight
   snapshot; no Supabase call needed.

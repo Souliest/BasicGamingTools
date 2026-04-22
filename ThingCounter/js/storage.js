@@ -1,5 +1,6 @@
 // ThingCounter/js/storage.js
 // Hybrid storage — localStorage for immediate reads, Supabase for persistence across devices.
+// Realtime subscription and _localLoad() use shared helpers from common/.
 //
 // LOCAL STORAGE SHAPE (v2)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21,8 +22,9 @@ import {supabase} from '../../common/supabase.js';
 import {getUser} from '../../common/auth.js';
 import {
     runMigrations, cacheGet, cacheSet, cacheDelete, updateIndex,
-    TOOL_CONFIG, CURRENT_VERSION,
+    TOOL_CONFIG, localLoad,
 } from '../../common/migrations.js';
+import {createRealtimeSubscription} from '../../common/realtime.js';
 
 // ── Storage key and tool config ───────────────────────────────────────────────
 
@@ -37,43 +39,13 @@ const TABLE = 'bgt_thing_counter_games';
 
 // ── Realtime ──────────────────────────────────────────────────────────────────
 
-let _realtimeChannel = null;
-
-export function subscribeToGameChanges(userId, onRemoteUpdate) {
-    unsubscribeFromGameChanges();
-
-    // Channel names are scoped to this Supabase project — they are not visible
-    // to other projects or other users. The userId suffix prevents a user from
-    // accidentally receiving another user's events within the same project, but
-    // RLS on the table is the authoritative access control. Predictable channel
-    // names are not a security concern under this model.
-    _realtimeChannel = supabase
-        .channel('tc-games-' + userId)
-        .on(
-            'postgres_changes',
-            {event: 'UPDATE', schema: 'public', table: TABLE, filter: `user_id=eq.${userId}`},
-            payload => onRemoteUpdate(payload.new),
-        )
-        .subscribe();
-}
-
-export function unsubscribeFromGameChanges() {
-    if (_realtimeChannel) {
-        supabase.removeChannel(_realtimeChannel);
-        _realtimeChannel = null;
-    }
-}
+const _rt = createRealtimeSubscription('tc-games', TABLE);
+export const subscribeToGameChanges = _rt.subscribe;
+export const unsubscribeFromGameChanges = _rt.unsubscribe;
 
 // ── Local helpers ─────────────────────────────────────────────────────────────
 
-function _localLoad() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) ||
-            {version: CURRENT_VERSION, index: [], blobs: {}, lruOrder: []};
-    } catch {
-        return {version: CURRENT_VERSION, index: [], blobs: {}, lruOrder: []};
-    }
-}
+const _localLoad = () => localLoad(STORAGE_KEY);
 
 export function localSave(stored) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));

@@ -3,7 +3,7 @@
 // Fully independent of the branch and counter modals in modal-node.js.
 
 import {saveData, STORAGE_KEY} from './storage.js';
-import {cacheSet, TOOL_CONFIG} from '../../common/migrations.js';
+import {cacheSet, TOOL_CONFIG, localLoad} from '../../common/migrations.js';
 import {findNode, removeNode, initialValue, countDescendants} from './nodes.js';
 import {openModal as trapOpen, closeModal as trapClose} from '../../common/utils.js';
 
@@ -11,12 +11,22 @@ const CFG = TOOL_CONFIG.thingCounter;
 
 // ── Local storage read ─────────────────────────────────────────────────────
 
-function _localLoad() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) ||
-            {version: 2, index: [], blobs: {}, lruOrder: []};
-    } catch {
-        return {version: 2, index: [], blobs: {}, lruOrder: []};
+const _localLoad = () => localLoad(STORAGE_KEY);
+
+// ── Inline error helpers ───────────────────────────────────────────────────
+
+function _showError(msg) {
+    const el = document.getElementById('gmError');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'block';
+}
+
+function _clearError() {
+    const el = document.getElementById('gmError');
+    if (el) {
+        el.textContent = '';
+        el.style.display = 'none';
     }
 }
 
@@ -26,6 +36,7 @@ let editingGameId = null;
 
 export function openAddGameModal() {
     editingGameId = null;
+    _clearError();
     document.getElementById('gameModalTitle').textContent = 'Add Game';
     document.getElementById('gmName').value = '';
     document.getElementById('gameSettingsDanger').style.display = 'none';
@@ -42,6 +53,7 @@ export function openGameSettingsModal(selectedGameId) {
     const entry = stored.index.find(e => e.id === selectedGameId);
     if (!entry) return;
     editingGameId = selectedGameId;
+    _clearError();
     document.getElementById('gameModalTitle').textContent = 'Game Settings';
     document.getElementById('gmName').value = entry.name;
     document.getElementById('gameSettingsDanger').style.display = '';
@@ -61,7 +73,7 @@ export function closeGameModal() {
 export async function saveGame(selectedGameId, onSaved) {
     const name = document.getElementById('gmName').value.trim();
     if (!name) {
-        alert('Please enter a game title.');
+        _showError('Please enter a game title.');
         return;
     }
 

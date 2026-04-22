@@ -172,6 +172,7 @@
       <button class="btn btn-ghost" onclick="closeGameModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveGame()">Save</button>
     </div>
+    <div class="modal-error" id="gmError" style="display:none" role="alert"></div>
     <div class="game-settings-danger" id="gameSettingsDanger" style="display:none">
       <div class="danger-divider">Danger Zone</div>
       <div class="danger-row" id="resetConfirmRow">
@@ -209,7 +210,8 @@
     <div class="focus-body">
       <div class="focus-value-wrap" onclick="activateQcValueInput()">
         <div class="focus-value-display" id="qcValueDisplay"
-             aria-live="polite" aria-atomic="true">0</div>
+             aria-live="polite" aria-atomic="true">0
+        </div>
         <input type="number" class="focus-value-input" id="qcValueInput" aria-label="Quick counter value"
                oninput="onQcValueInput()" onblur="onQcValueBlur()">
       </div>

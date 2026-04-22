@@ -3,7 +3,7 @@
 // No dependency on the game modal or confirm-delete flow (those live in modal-game.js).
 
 import {saveData, STORAGE_KEY} from './storage.js';
-import {cacheSet, TOOL_CONFIG} from '../../common/migrations.js';
+import {cacheSet, TOOL_CONFIG, localLoad} from '../../common/migrations.js';
 import {SWATCHES, DEFAULT_COLOR, swatchByColor} from './swatches.js';
 import {
     findNode, findParent, getAllBranches, isAncestor,
@@ -15,14 +15,7 @@ const CFG = TOOL_CONFIG.thingCounter;
 
 // ── Local storage read ─────────────────────────────────────────────────────
 
-function _localLoad() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) ||
-            {version: 2, index: [], blobs: {}, lruOrder: []};
-    } catch {
-        return {version: 2, index: [], blobs: {}, lruOrder: []};
-    }
-}
+const _localLoad = () => localLoad(STORAGE_KEY);
 
 // ── Swatch popover ─────────────────────────────────────────────────────────
 

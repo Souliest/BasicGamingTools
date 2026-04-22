@@ -2,7 +2,7 @@
 // Add/edit/delete game modal: open, close, save, tier row management, backdate toggle, and confirm-delete flow.
 
 import {loadData, saveData, STORAGE_KEY} from './storage.js';
-import {cacheSet, TOOL_CONFIG} from '../../common/migrations.js';
+import {cacheSet, TOOL_CONFIG, localLoad} from '../../common/migrations.js';
 import {todayStr, daysBetween, localDatePlusDays} from './dates.js';
 import {calcDailyTarget} from './snapshot.js';
 import {openModal as trapOpen, closeModal as trapClose} from '../../common/utils.js';
@@ -11,14 +11,7 @@ const CFG = TOOL_CONFIG.levelGoalTracker;
 
 // ── Local storage read ─────────────────────────────────────────────────────
 
-function _localLoad() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) ||
-            {version: 2, index: [], blobs: {}, lruOrder: []};
-    } catch {
-        return {version: 2, index: [], blobs: {}, lruOrder: []};
-    }
-}
+const _localLoad = () => localLoad(STORAGE_KEY);
 
 // ── Numeric helpers ────────────────────────────────────────────────────────
 // SEC: parseInt / parseFloat return NaN for blank strings and non-numeric

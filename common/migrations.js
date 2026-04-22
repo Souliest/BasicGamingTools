@@ -62,6 +62,23 @@ export const TOOL_CONFIG = {
 
 export const BLOB_CACHE_SIZE = 5;
 
+// ── localLoad ─────────────────────────────────────────────────────────────────
+// Reads and JSON-parses the stored object for the given storage key.
+// Returns a fresh empty v2 skeleton on any failure (missing key, malformed JSON).
+// This replaces the verbatim _localLoad() that previously existed in:
+//   LevelGoalTracker/js/main.js, modal.js, storage.js
+//   ThingCounter/js/main.js, focus.js, modal-game.js, modal-node.js, storage.js
+
+export function localLoad(storageKey) {
+    try {
+        return JSON.parse(localStorage.getItem(storageKey)) ||
+            {version: CURRENT_VERSION, index: [], blobs: {}, lruOrder: []};
+    } catch {
+        return {version: CURRENT_VERSION, index: [], blobs: {}, lruOrder: []};
+    }
+}
+
+
 // ── Migration runner ──────────────────────────────────────────────────────────
 
 export function runMigrations(toolConfig) {

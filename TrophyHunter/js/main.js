@@ -19,7 +19,7 @@ import {
     subscribeToGameChanges, unsubscribeFromGameChanges, REALTIME_ENABLED,
 } from './storage.js';
 import {
-    TOOL_CONFIG, cacheSet,
+    TOOL_CONFIG, cacheSet, localLoad
 } from '../../common/migrations.js';
 import {
     renderMain, updateGameHeader, updateGroupHeader,
@@ -49,14 +49,7 @@ let _syncTimer = null;
 
 // ── Local storage read ────────────────────────────────────────────────────────
 
-function _localLoad() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) ||
-            {version: 2, index: [], blobs: {}, lruOrder: []};
-    } catch {
-        return {version: 2, index: [], blobs: {}, lruOrder: []};
-    }
-}
+const _localLoad = () => localLoad(STORAGE_KEY);
 
 // ── Debounced sync ────────────────────────────────────────────────────────────
 // UI writes to localStorage immediately and re-renders.

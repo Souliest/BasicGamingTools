@@ -1,5 +1,6 @@
 // LevelGoalTracker/js/render.js
 // HTML section builders for the main view: overview, daily progress, checkpoints, and action button wiring.
+// renderActions() takes no parameters — the unused gameId arg has been removed; wiring is done in wireActions().
 
 // ═══════════════════════════════════════════════
 // Render — section builders and DOM orchestration
@@ -181,7 +182,7 @@ export function renderCheckpointsPanel(game, s) {
     </div>`;
 }
 
-export function renderActions(gameId) {
+export function renderActions() {
     return `
     <div class="game-actions">
       <button class="btn btn-warn"   id="editGameBtn">✏️ Edit</button>

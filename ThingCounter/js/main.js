@@ -13,7 +13,7 @@ import {
     subscribeToGameChanges, unsubscribeFromGameChanges,
 } from './storage.js';
 import {
-    TOOL_CONFIG, cacheSet,
+    TOOL_CONFIG, cacheSet, localLoad,
 } from '../../common/migrations.js';
 import {findNode, clampValue, initialValue} from './nodes.js';
 import {
@@ -108,14 +108,7 @@ const callbacks = {
 
 // ── Local storage read ────────────────────────────────────────────────────────
 
-function _localLoad() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) ||
-            {version: 2, index: [], blobs: {}, lruOrder: []};
-    } catch {
-        return {version: 2, index: [], blobs: {}, lruOrder: []};
-    }
-}
+const _localLoad = () => localLoad(STORAGE_KEY);
 
 // ── Realtime: handle an incoming remote update ────────────────────────────────
 // Remote updates for games not in the blob cache update the index only — no

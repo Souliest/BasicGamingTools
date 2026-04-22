@@ -20,7 +20,7 @@ import {
     subscribeToGameChanges,
     unsubscribeFromGameChanges,
 } from './storage.js';
-import {TOOL_CONFIG, cacheSet} from '../../common/migrations.js';
+import {TOOL_CONFIG, cacheSet, localLoad} from '../../common/migrations.js';
 import {maybeRollSnapshot} from './snapshot.js';
 import {computeStats} from './stats.js';
 import {
@@ -135,14 +135,7 @@ async function updateLevel() {
 // after loadGame/selectGame). Accepts an optional pre-loaded stored object to
 // avoid a redundant _localLoad() call.
 
-function _localLoad() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) ||
-            {version: 2, index: [], blobs: {}, lruOrder: []};
-    } catch {
-        return {version: 2, index: [], blobs: {}, lruOrder: []};
-    }
-}
+const _localLoad = () => localLoad(STORAGE_KEY);
 
 async function renderMain(preloadedStored) {
     const content = document.getElementById('mainContent');
@@ -175,7 +168,7 @@ async function renderMain(preloadedStored) {
         renderDailyProgressPanel(s),
         renderNextCheckpointPanel(s),
         renderCheckpointsPanel(game, s),
-        renderActions(game.id),
+        renderActions(),
     ].join('');
 
     const updateBtn = document.getElementById('updateLevelBtn');

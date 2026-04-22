@@ -2,7 +2,7 @@
 // Focus modal (per-counter large-target view) — open, close, display, input handlers.
 
 import {saveData, STORAGE_KEY} from './storage.js';
-import {cacheSet, TOOL_CONFIG} from '../../common/migrations.js';
+import {cacheSet, TOOL_CONFIG, localLoad} from '../../common/migrations.js';
 import {DEFAULT_COLOR} from './swatches.js';
 import {findNode, clampValue, initialValue, fillPercent} from './nodes.js';
 import {openModal as trapOpen, closeModal as trapClose} from '../../common/utils.js';
@@ -11,14 +11,7 @@ const CFG = TOOL_CONFIG.thingCounter;
 
 // ── Local storage read ─────────────────────────────────────────────────────
 
-function _localLoad() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) ||
-            {version: 2, index: [], blobs: {}, lruOrder: []};
-    } catch {
-        return {version: 2, index: [], blobs: {}, lruOrder: []};
-    }
-}
+const _localLoad = () => localLoad(STORAGE_KEY);
 
 // ── Focus modal state ──────────────────────────────────────────────────────
 

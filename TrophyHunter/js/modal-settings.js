@@ -1,5 +1,5 @@
 // TrophyHunter/js/modal-settings.js
-// Game Settings modal — rename, reset progress, refresh from PSN, remove game.
+// Game Settings modal — rename, reset progress, refresh from PlayStation, remove game.
 // No dependency on the search modal or its state.
 
 // ═══════════════════════════════════════════════
@@ -111,7 +111,7 @@ async function _handleRefresh(game, callbacks) {
     const msgEl = document.getElementById('settingsRefreshMsg');
     const btn = document.getElementById('settingsRefreshBtn');
 
-    msgEl.textContent = 'Fetching from PSN…';
+    msgEl.textContent = 'Fetching from PlayStation…';
     msgEl.className = 'settings-refresh-msg';
     btn.disabled = true;
 

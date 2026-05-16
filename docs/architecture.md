@@ -14,7 +14,7 @@ BasicGamingTools/
 ├── docs/
 │   ├── architecture.md     # This file — conventions and shared patterns
 │   ├── storage.md          # Hybrid storage model, migrations, LRU, Realtime
-│   └── trophy-hunter.md    # TrophyHunter Worker, PSN search, render patterns
+│   └── trophy-hunter.md    # TrophyHunter Worker, PlayStation search, render patterns
 ├── common/
 │   ├── tools.js            # TOOLS array — single source of truth for the index
 │   ├── migrations.js       # Versioned migrations, LRU helpers, TOOL_CONFIG
@@ -374,7 +374,7 @@ live credentials. The `gh-pages` branch is managed entirely by the Action — do
 
 ### URL sanitisation
 
-External URLs (e.g. game icon URLs from the PSN catalog) must be validated before assignment to DOM
+External URLs (e.g. game icon URLs from the PlayStation catalog) must be validated before assignment to DOM
 properties. `TrophyHunter/js/modal-search.js` exports `_safeIconUrl(url)` which allows only `http:`
 and `https:` protocols, blocking `javascript:` and `data:` vectors before `img.src` assignment.
 Apply the same pattern wherever external URLs are used as DOM property values.
@@ -448,7 +448,7 @@ worker side. Spoofing it has no security consequence.
 
 ### TrophyHunter
 
-See `docs/trophy-hunter.md` for Worker, PSN search flow, catalog cache, and render patterns.
+See `docs/trophy-hunter.md` for Worker, PlayStation search flow, catalog cache, and render patterns.
 
 - Hybrid storage with debounced Supabase sync — see `docs/storage.md`.
 - `_personalData` in `main.js` holds `{ index, blobs }` — drives the selector only.
@@ -505,7 +505,7 @@ See `docs/trophy-hunter.md` for Worker, PSN search flow, catalog cache, and rend
   store. Exported so tools can call it independently if needed.
 - **`_safeIconUrl` in `modal-search.js`** — `img.src` assignment is safe from HTML injection but a
   `javascript:` URL still executes in some browsers. Protocol allowlisting (`http:`/`https:` only)
-  closes the vector without affecting legitimate PSN icon URLs, which are always HTTPS.
+  closes the vector without affecting legitimate PlayStation icon URLs, which are always HTTPS.
 - **`_parseInt`/`_parseFloat` in `modal.js` (LevelGoalTracker)** — `parseInt("")` returns `NaN`;
   `JSON.stringify(NaN)` produces `null`; `null` silently breaks pace calculations. Centralised helpers
   make the guard impossible to forget and easy to audit.
@@ -569,7 +569,7 @@ See `docs/trophy-hunter.md` for Worker, PSN search flow, catalog cache, and rend
   (user-facing), architecture docs live together (developer-facing).
 - **Split into `architecture.md`, `storage.md`, `trophy-hunter.md`** — storage is a large
   self-contained topic shared across three tools; TrophyHunter has substantial infrastructure
-  (Worker, PSN, render quirks) that would crowd the shared conventions doc.
+  (Worker, PlayStation, render quirks) that would crowd the shared conventions doc.
 - **`openModal`/`closeModal` focus-trap in `common/utils.js`** — `inert` on background content is
   the correct accessible approach (prevents Tab, pointer, and assistive-technology interaction with
   background elements simultaneously). A CSS-only approach cannot trap AT focus. The auth and

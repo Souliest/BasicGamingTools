@@ -39,7 +39,7 @@ The application is designed to be fast and practical — no PlayStation account 
   a group's trophies, with 6px of breathing room from the viewport edge
 - Filter by All / Earned / Unearned — with a labeled section divider between sections when both are present;
   trophies in the dimmed section remain fully interactive
-- Sort by PSN order, alphabetical, or grade; re-sorts immediately on trophy toggle when a filter is active
+- Sort by PlayStation order, alphabetical, or grade; re-sorts immediately on trophy toggle when a filter is active
 - Flat list mode to ungroup DLC
 - Long-press any trophy to pin it (pinned trophies float to the top of their group)
 - Instant UI response — trophy state writes to localStorage immediately; Supabase syncs in the background after a
@@ -47,10 +47,10 @@ The application is designed to be fast and practical — no PlayStation account 
 - Real-time cross-device sync — when signed in and `REALTIME_ENABLED = true` in `storage.js`, trophy state
   changes propagate silently across devices; display preferences (filter, sort, view options) are intentionally
   excluded from live sync so each device keeps its own session state
-- Orphaned trophy detection — trophies removed from PSN are flagged rather than silently deleted
-- Game settings: rename, reset progress, refresh from PSN, remove game
+- Orphaned trophy detection — trophies removed from PlayStation data are flagged rather than silently deleted
+- Game settings: rename, reset progress, refresh from PlayStation, remove game
 - Collision detection: if local and cloud data differ, a prompt lets you choose which to keep
-- Percentage uses `Math.floor` matching PSN convention — never rounds up to 100% while any trophy is unearned
+- Percentage uses `Math.floor` matching PlayStation convention — never rounds up to 100% while any trophy is unearned
 - Fullscreen toggle in the header (Firefox Android, Chrome Android, desktop) — hidden on iOS where the API is
   unavailable
 - Scroll locked under modals
@@ -70,12 +70,12 @@ TrophyHunter/
 ├── js/
 │   ├── main.js           # Entry point: state, selector, interactions, debounced sync, Realtime, globals, init
 │   ├── storage.js        # Hybrid storage: localStorage, Supabase, Realtime subscription, catalog, lookup
-│   ├── psn.js            # Cloudflare Worker calls and 4-step search flow
+│   ├── psn.js            # Cloudflare Worker calls
 │   ├── stats.js          # Pure stat computation: computeStats, computeGroupStats
 │   ├── render.js         # All HTML section builders and DOM update functions for the main view
 │   ├── modal.js          # Barrel: re-exports from modal-search.js and modal-settings.js
-│   ├── modal-search.js   # Search modal, contribute prompt, result rows, 4-step search UI
-│   └── modal-settings.js # Game settings modal: rename, reset, refresh from PSN, remove
+│   ├── modal-search.js   # Search modal, 3-step search flow with forward/back navigation, contribute prompt, result rows
+│   └── modal-settings.js # Game settings modal: rename, reset, refresh from PlayStation, remove
 └── README.md
 ```
 
@@ -97,20 +97,28 @@ data across devices.
 
 ## Search Flow
 
-Trophy Hunter uses a four-step cascade to find games, falling back to the next step only when the previous one
-yields nothing. Search queries are normalised before matching — special characters like `™`, `:`, and `-` are
-stripped so that e.g. `Batman Arkham Knight` matches `Batman™: Arkham Knight`.
+Trophy Hunter uses a three-step cascade to find games. Steps proceed automatically
+when nothing is found, or offer to go deeper when results exist. Search queries are
+normalised before matching — special characters like `™`, `:`, and `-` are stripped
+so that e.g. `Batman Arkham Knight` matches `Batman™: Arkham Knight`.
 
-1. **Catalog** — searches the shared Supabase trophy catalog. Instant add if found.
-2. **Lookup table** — searches a shared NPWR mapping table. Fetches trophies from PlayStation if found.
-3. **Patch sites** — queries OrbisPatches (PS4) and ProsperoPatches (PS5) for CUSA/PPSA IDs, then resolves them
-   to NPWR IDs via a PlayStation surrogate account lookup.
-4. **Contribute** — if all else fails, the modal asks for a PSN username from someone who has played the game.
-   Their title list is fetched, the game's NPWR ID is saved to the shared lookup table for future searches, and
-   the search retries automatically. The username itself is never stored.
+1. **Catalog + Lookup** — searches the shared Supabase trophy catalog and NPWR
+   mapping table in parallel. Catalog results appear first (instant add), lookup
+   results after (will fetch trophy data from PlayStation). If nothing is found,
+   automatically proceeds to step 2.
 
-Every step that discovers a new title→NPWR mapping saves it passively to the shared lookup table via the
-Cloudflare Worker, so the catalog grows over time without any manual curation.
+2. **PlayStation search** — queries OrbisPatches (PS4) and ProsperoPatches (PS5)
+   for CUSA/PPSA IDs, then resolves them to NPWR IDs. Results are deduped against
+   step 1. If nothing is found, automatically proceeds to step 3.
+
+3. **Contribute** — asks for a PlayStation username from someone who has played the
+   game. Their title list is fetched, new title→NPWR mappings are saved to the
+   shared lookup table, and only results not already seen in steps 1 or 2 are shown.
+   The username itself is never stored.
+
+At every step, a back link lets you return to previous results. Every new mapping
+discovered passively enriches the shared lookup table via the Cloudflare Worker,
+so the catalog grows over time without any manual curation.
 
 ---
 
@@ -157,13 +165,13 @@ Supabase within 2 seconds, superseding the remote state.
 ## Infrastructure
 
 Trophy Hunter relies on a Cloudflare Worker (`bgt-psn-proxy`) as a PlayStation API proxy. The worker holds the
-PSN session token and Supabase secret key as environment secrets and exposes three routes:
+PlayStation session token and Supabase secret key as environment secrets and exposes three routes:
 
-| Route         | Method | Description                                                      |
-|---------------|--------|------------------------------------------------------------------|
-| `/resolve`    | GET    | Resolves CUSA/PPSA title IDs to NPWR communication IDs           |
-| `/trophies`   | GET    | Fetches the full trophy list for a given NPWR ID                 |
-| `/contribute` | POST   | Fetches a PSN user's full title list for lookup table enrichment |
+| Route         | Method | Description                                                              |
+|---------------|--------|--------------------------------------------------------------------------|
+| `/resolve`    | GET    | Resolves CUSA/PPSA title IDs to NPWR communication IDs                   |
+| `/trophies`   | GET    | Fetches the full trophy list for a given NPWR ID                         |
+| `/contribute` | POST   | Fetches a PlayStation user's full title list for lookup table enrichment |
 
 The worker is the sole writer to the shared Supabase tables (`bgt_trophy_hunter_catalog` and
 `bgt_trophy_hunter_lookup`). After fetching data from PlayStation, it writes the results to Supabase using a

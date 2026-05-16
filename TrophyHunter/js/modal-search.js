@@ -21,6 +21,7 @@
 import {
     workerResolve,
     workerFetchTrophies,
+    workerContribute,
     ORBIS_SEARCH_URL,
     PROSPERO_SEARCH_URL,
 } from './psn.js';

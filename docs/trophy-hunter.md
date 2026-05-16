@@ -7,37 +7,39 @@ For general conventions see `docs/architecture.md`.
 
 ## Module Structure
 
-| Module              | Contents                                                                                                                             |
-|---------------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| `main.js`           | State (`_personalData`, `_selectedGameBlob`, `_catalogEntry`), selector, debounced sync, Realtime, game management, globals, init    |
-| `storage.js`        | Hybrid personal state storage; catalog cache; lookup and catalog search; 4-step search flow; `createGameEntry`; `mergeCatalogUpdate` |
-| `psn.js`            | Cloudflare Worker calls (`workerResolve`, `workerContribute`, `workerFetchTrophies`) and URL constants. Pure leaf — no imports.      |
-| `stats.js`          | `computeStats`, `computeGroupStats` — pure functions, no DOM dependency                                                              |
-| `render.js`         | All HTML builders and targeted DOM update functions.                                                                                 |
-| `modal-search.js`   | Search / Add Game modal — 3-step search flow with forward/back navigation, seen-set deduplication, contribute prompt, result rows    |
-| `modal-settings.js` | Game Settings modal — rename, reset, refresh from PSN, remove                                                                        |
-| `modal.js`          | Barrel — re-exports from both modal files                                                                                            |
+| Module              | Contents                                                                                                                          |
+|---------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| `main.js`           | State (`_personalData`, `_selectedGameBlob`, `_catalogEntry`), selector, debounced sync, Realtime, game management, globals, init |
+| `storage.js`        | Hybrid personal state storage; catalog cache; lookup and catalog search; `createGameEntry`; `mergeCatalogUpdate`                  |
+| `psn.js`            | Cloudflare Worker calls (`workerResolve`, `workerContribute`, `workerFetchTrophies`) and URL constants. Pure leaf — no imports.   |
+| `stats.js`          | `computeStats`, `computeGroupStats` — pure functions, no DOM dependency                                                           |
+| `render.js`         | All HTML builders and targeted DOM update functions.                                                                              |
+| `modal-search.js`   | Search / Add Game modal — 3-step search flow with forward/back navigation, seen-set deduplication, contribute prompt, result rows |
+| `modal-settings.js` | Game Settings modal — rename, reset, refresh from PlayStation, remove                                                             |
+| `modal.js`          | Barrel — re-exports from both modal files                                                                                         |
 
 ---
 
 ## Cloudflare Worker
 
-`bgt-psn-proxy` acts as both a PSN API proxy and the exclusive writer to the two shared Supabase tables.
-It holds the PSN NPSSO session token and a Supabase secret key (`SUPABASE_BGT_SECRET_KEY`) as environment secrets.
+`bgt-psn-proxy` acts as both a PlayStation API proxy and the exclusive writer to the two shared Supabase tables.
+It holds the PlayStation NPSSO session token and a Supabase secret key (`SUPABASE_BGT_SECRET_KEY`) as environment
+secrets.
 
 **Routes:**
 
-| Route         | Method | Description                                                        |
-|---------------|--------|--------------------------------------------------------------------|
-| `/resolve`    | GET    | CUSA/PPSA title IDs → NPWR communication IDs via surrogate account |
-| `/trophies`   | GET    | NPWR ID → full trophy list (groups + individual trophies)          |
-| `/contribute` | POST   | PSN username → full title list (for lookup table enrichment)       |
+| Route         | Method | Description                                                          |
+|---------------|--------|----------------------------------------------------------------------|
+| `/resolve`    | GET    | CUSA/PPSA title IDs → NPWR communication IDs via surrogate account   |
+| `/trophies`   | GET    | NPWR ID → full trophy list (groups + individual trophies)            |
+| `/contribute` | POST   | PlayStation username → full title list (for lookup table enrichment) |
 
 **Key rule:** the browser client never writes to the shared tables. The worker is the sole trust boundary — only data
 sourced directly from PlayStation can enter the shared catalog. The browser reads from shared tables and writes only to
 its own personal game state table (`bgt_trophy_hunter_games`).
 
-`/trophies` delegates to a `FetchCoordinator` Durable Object for PSN token caching and concurrent request coalescing.
+`/trophies` delegates to a `FetchCoordinator` Durable Object for PlayStation token caching and concurrent request
+coalescing.
 Rate limiting uses a KV namespace. `DEV_MODE` is a Cloudflare environment variable (not hardcoded) — toggle from the
 dashboard without a redeploy.
 
@@ -73,7 +75,7 @@ Personal game state for all games is always stored in full in the v2 blob cache 
 
 ---
 
-## 4-Step Search Flow
+## 3-Step Search Flow
 
 `_runStep1/2/3` in `modal-search.js` runs a cascade, falling back automatically
 when a step yields nothing, or offering to go deeper when it yields something.
@@ -170,7 +172,7 @@ updates (`refreshTrophyRow`, `updateGroupHeader`, `updateGameHeader`) are used i
 
 ### Percentage flooring
 
-Both `computeStats` and `computeGroupStats` use `Math.floor` (not `Math.round`) — matches PSN convention.
+Both `computeStats` and `computeGroupStats` use `Math.floor` (not `Math.round`) — matches PlayStation convention.
 A game missing one bronze never shows 100%.
 
 ### Selector bar height normalisation
@@ -186,7 +188,7 @@ renderMain(selectedGameId, personalData, selectedGameBlob, catalogEntry, callbac
 
 - `personalData` — `{ index, blobs }` — used only for the empty-state message (`index.length`).
 - `selectedGameBlob` — the full game object for the selected game. All game data comes from here.
-- `catalogEntry` — PSN trophy list. `null` if not yet loaded.
+- `catalogEntry` — PlayStation trophy list. `null` if not yet loaded.
 
 Previously `renderMain` received `personalData` with a `.games` array and called `.find()` to get the
 active game. The blob is now a standalone parameter.
@@ -216,10 +218,12 @@ active game. The blob is now a standalone parameter.
   were updated, deleted entirely. Worker handles all lookup writes server-side.
 - **`DEV_MODE` as a Cloudflare environment variable** — previously hardcoded, requiring a redeploy to toggle. A
   Cloudflare variable (`env.DEV_MODE === 'true'`) allows toggling from the dashboard with immediate effect.
-- **Orphaned trophy detection** — trophies removed from PSN are flagged (`orphaned: true`) rather than silently deleted
+- **Orphaned trophy detection** — trophies removed from PlayStation are flagged (`orphaned: true`) rather than silently
+  deleted
   on Refresh. They appear with a dashed border and warning label, excluded from progress calculations. A fresh Refresh
   clears them.
-- **`normaliseTitle()` on both save and search** — ensures `ilike` matches work regardless of PSN capitalisation.
+- **`normaliseTitle()` on both save and search** — ensures `ilike` matches work regardless of PlayStation
+  capitalisation.
   `stripSearchNoise()` is applied to queries only — stored titles remain canonical so the data isn't corrupted.
 - **Section divider as sentinel object** — injecting `{_divider: true}` into the filtered array keeps rendering logic in
   one place without needing separate before/after arrays or post-processing passes.

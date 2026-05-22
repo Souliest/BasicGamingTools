@@ -10,12 +10,12 @@ to sign in. See [Account & Sync](#account--sync) below.
 
 ## Tools at a Glance
 
-| Tool                   | What it does                                                                                                                                                    |
-|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Level Goal Tracker** | Set a target level with a deadline. Tracks daily required XP and shows whether you're ahead or behind pace.                                                     |
-| **Thing Counter**      | Track anything countable, organised into a tree of named groups by game. Supports bounded and open-ended counters, decrement mode, and configurable step sizes. |
-| **Trophy Hunter**      | Track PlayStation trophy progress across your games. Search for any PS3, PS4, PS5, or PS Vita title and mark trophies as earned.                                |
-| **XP Tracker**         | Log XP gains and track your rate over a session. Includes charts with moving averages and rate estimates.                                                       |
+| Tool                   | What it does                                                                                                                     |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| **Checklist Manager**  | Manage resettable checklists with resource tracking, tag-based filtering, and pinned-item focus mode.                            |
+| **Level Goal Tracker** | Set a target level with a deadline. Tracks daily required XP and shows whether you're ahead or behind pace.                      || **Thing Counter**      | Track anything countable, organised into a tree of named groups by game. Supports bounded and open-ended counters, decrement mode, and configurable step sizes. |
+| **Trophy Hunter**      | Track PlayStation trophy progress across your games. Search for any PS3, PS4, PS5, or PS Vita title and mark trophies as earned. |
+| **XP Tracker**         | Log XP gains and track your rate over a session. Includes charts with moving averages and rate estimates.                        |
 
 ---
 
@@ -61,6 +61,108 @@ clean stats.
 
 > **Tip:** Rate estimates are most accurate after you've logged several entries over a few minutes. Early in a session
 > the numbers will be volatile.
+
+---
+
+## Checklist Manager
+
+Checklist Manager is a tool for running structured, repeatable procedures. You define the structure once —
+items, steps, tags, resources — and the session state (which steps are done, how many executions) resets
+between runs without touching the definitions.
+
+### Setting Up a Project
+
+1. Open Checklist Manager from the main tools page.
+2. Click **+ Project** to create a project.
+3. In the project settings modal, add any resources your checklist tracks (name, emoji, total slots).
+4. Add item tags (used to filter whole items) and step tags (used to filter steps within items).
+5. Click **Save**.
+
+### Adding Items and Steps
+
+1. With a project selected, click **+ Item**.
+2. Give the item a name and assign any item tags.
+3. Add steps using **+ Step**. For each step:
+    - Enter a title and optional description (ingredients, notes, instructions, anything useful).
+    - Assign step tags.
+    - Enter resource costs if this step consumes any resources.
+4. Click **Save**.
+
+Steps are ordered — they render in the order you define them. Use the ▲▼ arrows in the step editor
+to reorder.
+
+### Running a Session
+
+- Tap the **+** button on a step to mark it done.
+- Tap **+** again on a completed step to log another execution (e.g. a second batch). A **×N** count
+  appears below the button when N > 1. Additional executions multiply the step's resource cost.
+- Completed steps dim. An item shows **✔** when all currently visible steps are done.
+- Tap an item's name to open the **Briefing** — a read-only summary of all step details, useful for
+  reviewing a procedure before starting.
+
+### Filters
+
+```
+Filters: [Item ▾]  [Step ▾]
+View:    [📌] [✏️] [≡]  [↺ Reset]
+```
+
+| Control | What it does                                                                              |
+|---------|-------------------------------------------------------------------------------------------|
+| Item ▾  | Filter by item tag — only items carrying the selected tag are shown.                      |
+| Step ▾  | Filter by step tag — only matching steps are shown; items with no matches are hidden.     |
+| 📌      | Focus mode — hides All Items, shows only Pinned items. Pinned items expand automatically. |
+| ✏️      | Reorder mode (manual sort only) — shows ▲▼ arrows on each item.                           |
+| ≡       | Cycle sort order: manual → A→Z → Z→A → manual.                                            |
+| ↺ Reset | Reset all step state. Tap once to arm, tap again within 4 seconds to confirm.             |
+
+Multiple filters can be active at once. Active filters appear as dismissible pills below the filter bar.
+Tap the **Aa / 😀** toggle on the pills row to switch between tag name and emoji display.
+
+### Pinning
+
+Long-press any item to pin or unpin it. Pinned items appear in a **📌 Pinned** section at the top
+and remain visible in All Items as well.
+
+The Pinned section has its own **↺ Pinned** reset that affects only pinned items.
+
+Tap **📌** in the View bar to enter focus mode — the All Items section disappears, leaving only your
+pinned items expanded and ready to work through.
+
+### Resource Tracking
+
+The **Inventory** tally appears below the filter bar whenever at least one item is pinned. It shows
+committed resource slots across all pinned items:
+
+```
+Inventory (pinned)
+🔧 Slots    3 / 8   [████░░░░░░]
+📦 Bays     5 / 5   [██████████]  ← orange when over capacity
+```
+
+Each step tap commits that step's resource cost. Tapping again (second execution) commits the cost
+again. The tally updates live.
+
+Over-capacity resources turn orange — a planning signal, not a hard block.
+
+### Briefing Modal
+
+Tap any item's name to open the briefing. Toggle between:
+
+- **All Steps** — complete reference view regardless of active filters
+- **Filtered** — only steps matching the current step-tag filter
+
+The toggle preference is global and remembered across opens.
+
+### Resetting
+
+| Scope        | How                                                    | Confirm required |
+|--------------|--------------------------------------------------------|------------------|
+| Single step  | ↺ button on the item (resets all of that item's steps) | No               |
+| Pinned items | ↺ Pinned in the Pinned section header                  | Yes (2 taps)     |
+| All items    | ↺ Reset in the View bar, or ↺ All in All Items         | Yes (2 taps)     |
+
+Resetting clears step execution counts. Item definitions, pins, and active filters are untouched.
 
 ---
 
@@ -352,9 +454,8 @@ The 👤 button in the header opens the account menu. You can create an account,
 
 **Without an account:** everything works as before — data is saved locally in your browser and never leaves your device.
 
-**With an account:** Level Goal Tracker, Thing Counter, and Trophy Hunter sync your games to Supabase. Data is pushed
-on every save and pulled on tool load, so your games are available on any device you sign in from. XP Tracker is
-session-based by design and does not sync.
+**With an account:** Checklist Manager, Level Goal Tracker, Thing Counter, and Trophy Hunter sync your
+data to Supabase.
 
 **Sign in nudge:** the first time you visit any tool without being signed in, a tooltip on the 👤 button reminds you
 that sync is available. It appears once and does not come back after you dismiss it.
@@ -388,6 +489,8 @@ Local Storage).
 | `bgt:auth:nudge-seen`                   | Global             | Set to `1` once the sign-in nudge is dismissed. |
 | `bgt:xp-tracker:gains`                  | XP Tracker         | Array of logged XP gains with timestamps.       |
 | `bgt:xp-tracker:start`                  | XP Tracker         | Session start timestamp.                        |
+| `bgt:clm:v2`                            | Checklist Manager  | `{ version, index, blobs, lruOrder }`           |
+| `bgt:clm:selected-project`              | Checklist Manager  | Last selected project UUID.                     |
 | `bgt:level-goal-tracker:data`           | Level Goal Tracker | All games, goals, and daily history.            |
 | `bgt:level-goal-tracker:selected-game`  | Level Goal Tracker | Last selected game ID.                          |
 | `bgt:thing-counter:data`                | Thing Counter      | All games and their counter trees.              |

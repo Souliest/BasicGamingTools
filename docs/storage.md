@@ -58,6 +58,7 @@ TrophyHunter includes `platform` because the selector renders `[name] [platform]
 
 | Tool             | Key                         | Legacy key (deleted on migration) |
 |------------------|-----------------------------|-----------------------------------|
+| ChecklistManager | `bgt:clm:v2`                | `bgt:clm:data`                    |
 | LevelGoalTracker | `bgt:level-goal-tracker:v2` | `bgt:level-goal-tracker:data`     |
 | ThingCounter     | `bgt:thing-counter:v2`      | `bgt:thing-counter:data`          |
 | TrophyHunter     | `bgt:trophy-hunter:v2`      | `bgt:trophy-hunter:data`          |
@@ -134,6 +135,7 @@ One row per game in each tool's personal games table. Schema unchanged from v1.
 
 | Table                          | Tool             |
 |--------------------------------|------------------|
+| `bgt_clm_projects`             | ChecklistManager |
 | `bgt_level_goal_tracker_games` | LevelGoalTracker |
 | `bgt_thing_counter_games`      | ThingCounter     |
 | `bgt_trophy_hunter_games`      | TrophyHunter     |

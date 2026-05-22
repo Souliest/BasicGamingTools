@@ -23,6 +23,11 @@ These projects prioritize clarity and practicality over complexity.
 
 ## Tools Included
 
+### ChecklistManager
+
+Manage resettable checklists with independent item and step filtering, resource tracking across
+pinned items, and session state that resets without touching the underlying structure.
+
 ### XpTracker
 
 Track experience points and monitor progression toward defined XP goals. Session-based and localStorage-only by design
@@ -49,9 +54,9 @@ All tools in this repository:
 - Use vanilla HTML, CSS, and JavaScript (ES modules)
 - Require no build tools or frameworks
 
-**Storage:** XpTracker uses localStorage exclusively. LevelGoalTracker and ThingCounter use a hybrid model:
-localStorage for immediate reads (works offline), with optional Supabase sync for cross-device persistence when the
-user is signed in.
+**Storage:** XpTracker uses localStorage exclusively. LevelGoalTracker, ThingCounter, and ChecklistManager
+use a hybrid model: localStorage for immediate reads (works offline), with optional Supabase sync for
+cross-device persistence when the user is signed in.
 
 **Auth:** A shared account system (`common/auth-ui.js`) provides sign-up, sign-in, and password reset via a 👤
 button in every tool header. Accounts are optional — all tools remain fully functional without one.
@@ -103,6 +108,18 @@ BasicGamingTools/
 │   │   ├── stats.js
 │   │   ├── charts.js
 │   │   └── render.js
+│   └── README.md
+│
+├── ChecklistManager/
+│   ├── index.html
+│   ├── styles.css
+│   ├── js/
+│   │   ├── main.js
+│   │   ├── storage.js
+│   │   ├── render.js
+│   │   ├── modal-project.js
+│   │   ├── modal-item.js
+│   │   └── modal.js
 │   └── README.md
 │
 ├── LevelGoalTracker/

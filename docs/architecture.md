@@ -459,6 +459,30 @@ worker side. Spoofing it has no security consequence.
   re-renders. `loadData()` also cleans up offline-missed deletions by comparing the local index
   against the remote ID set on every load.
 
+### ChecklistManager
+
+- Hybrid storage with debounced Supabase sync — see `docs/storage.md`.
+- Two tag types: item tags (filter whole items) and step tags (filter steps within items). Stored as
+  separate arrays (`itemTags`, `stepTags`) on the project blob.
+- Resources are defined at the project level and consumed at the step level. Each step carries a
+  `resourceCosts: { [resourceId]: number }` map. The resource tally sums `cost × step.current` across
+  all pinned items only.
+- Step execution is open-ended — `step.current` increments without a ceiling. `current >= 1` means done;
+  `current > 1` means multiple executions (batches). No `counterTarget` field exists on steps.
+- `session` lives inside the project blob — single upsert, no orphaned session keys. Session state
+  (step ticks) writes to localStorage immediately and syncs to Supabase via a 2-second debounce, same
+  pattern as TrophyHunter.
+- `_expandedItems` and `_editMode` are UI-only state in `main.js`, injected into `_doRenderMain` as a
+  session overlay so `render.js` can read them without them being persisted or synced.
+- Pinned items mirror to the top section and remain in All Items — unlike TrophyHunter where pinned
+  items move out of their natural position.
+- 📌 focus mode hides the All Items section entirely. ↺ Reset All remains visible and functional in
+  focus mode.
+- `modal-project.js` handles `_reconcileDeletedResources` (loops over `step.resourceCosts`) and
+  `_reconcileDeletedTags` (cleans orphaned tag IDs from items and steps) on every project save.
+- `modal-item.js` handles step reordering via ▲▼ in the step editor; drag-to-reorder deferred.
+- `modal.js` is a barrel re-exporting from `modal-project.js` and `modal-item.js`.
+
 ### TrophyHunter
 
 See `docs/trophy-hunter.md` for Worker, PlayStation search flow, catalog cache, and render patterns.
@@ -482,8 +506,9 @@ See `docs/trophy-hunter.md` for Worker, PlayStation search flow, catalog cache, 
 | `bgt:auth:nudge-seen`                   | global           | `'1'` once the sign-in nudge is dismissed |
 | `bgt:xp-tracker:gains`                  | XpTracker        | JSON array of `{ xp, ts }` objects        |
 | `bgt:xp-tracker:start`                  | XpTracker        | Session start timestamp                   |
-| `bgt:level-goal-tracker:v2`             | LevelGoalTracker | `{ version, index, blobs, lruOrder }`     |
-| `bgt:level-goal-tracker:selected-game`  | LevelGoalTracker | Selected game UUID                        |
+| `bgt:clm:v2`                            | ChecklistManager | `{ version, index, blobs, lruOrder }`     |
+| `bgt:clm:selected-project`              | ChecklistManager | Selected project UUID                     |
+| `bgt:level-goal-tracker:v2`             | LevelGoalTracker | `{ version, index, blobs, lruOrder }`     || `bgt:level-goal-tracker:selected-game`  | LevelGoalTracker | Selected game UUID                        |
 | `bgt:thing-counter:v2`                  | ThingCounter     | `{ version, index, blobs, lruOrder }`     |
 | `bgt:thing-counter:selected-game`       | ThingCounter     | Selected game UUID                        |
 | `bgt:thing-counter:quick-counter-val`   | ThingCounter     | Quick Counter current value               |
@@ -615,3 +640,25 @@ See `docs/trophy-hunter.md` for Worker, PlayStation search flow, catalog cache, 
   offline when a deletion occurred never receives the event. Comparing the local index against the
   remote ID set on every `loadData()` catches missed events at no extra query cost — the lightweight
   select that already runs for the selector provides the remote ID set.
+- - **Stale-delete cleanup in `loadData()` (LGT, TC)** — Realtime handles live deletes...
+- **ChecklistManager: two tag types** — item tags and step tags serve fundamentally different filtering
+  purposes (hide whole items vs hide steps within items). A single tag list with a type flag was
+  considered but two separate lists (`itemTags`, `stepTags`) are cleaner to reason about, impossible
+  to confuse at the call site, and map directly to the two filter dropdowns in the UI.
+- **ChecklistManager: resources at step level, not item level** — resources reflect the cost of
+  *executing* a step, not the existence of an item. A step that can be run multiple times multiplies
+  its resource cost by the execution count. Item-level costs have no natural multiplier.
+- **ChecklistManager: open-ended step execution** — no `counterTarget`. The first tap marks a step
+  done; subsequent taps add executions (batches) that multiply resource costs. "Done" is always
+  `current >= 1`, regardless of batch count. This removes a configuration burden (no target to set)
+  while supporting the repeated-execution pattern naturally.
+- **ChecklistManager: pinned section mirrors, not moves** — TrophyHunter moves pinned items to the
+  top and removes them from their natural position. ChecklistManager shows pinned items in both the
+  Pinned section and All Items. The full list remains intact so context is never lost.
+- **ChecklistManager: tally counts pinned items only** — the tally reflects active service commitment,
+  not theoretical library capacity. An unpinned item is not in play; including it in the tally would
+  make the numbers meaningless during active use.
+- **ChecklistManager: `_expandedItems` as UI-only Set** — collapse/expand state is transient and
+  device-local by nature. Persisting it to Supabase would add write overhead for a preference that
+  resets naturally (pinned items re-expand on focus mode entry). Injecting it via session overlay
+  keeps render.js unaware of the distinction between persisted and ephemeral state.

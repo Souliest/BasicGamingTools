@@ -195,12 +195,12 @@ function _renderResourceList() {
         row.className = 'def-row def-row-resource';
         row.innerHTML = `
             <input type="text" class="def-col-name" value="${escHtml(res.name)}"
-                   aria-label="Resource name" placeholder="e.g. Warmer"
+                   aria-label="Resource name" placeholder="e.g. Slots"
                    data-field="name" data-idx="${idx}">
             <input type="text" class="def-col-emoji emoji-input"
                    value="${escHtml(res.emoji)}"
                    aria-label="Resource emoji" maxlength="2"
-                   placeholder="🔥"
+                   placeholder="📦"
                    data-field="emoji" data-idx="${idx}">
             <input type="number" class="def-col-capacity capacity-input"
                    value="${res.capacity}"
@@ -254,12 +254,12 @@ function _renderTagList(containerId, list, kind) {
         row.className = 'def-row def-row-tag';
         row.innerHTML = `
             <input type="text" class="def-col-name" value="${escHtml(tag.name)}"
-                   aria-label="Tag name" placeholder="e.g. Prep"
+                   aria-label="Tag name" placeholder="e.g. Priority"
                    data-field="name" data-idx="${idx}" data-kind="${kind}">
             <input type="text" class="def-col-emoji emoji-input"
                    value="${escHtml(tag.emoji)}"
                    aria-label="Tag emoji" maxlength="2"
-                   placeholder="🔪"
+                   placeholder="🏷️"
                    data-field="emoji" data-idx="${idx}" data-kind="${kind}">
             <button class="def-row-remove def-col-remove"
                     aria-label="Remove tag"

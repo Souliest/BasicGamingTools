@@ -1,20 +1,17 @@
 // ChecklistManager/js/render.js
-// All HTML builders and targeted DOM update functions.
-// Receives data as parameters — no loadData() calls inside this module.
+// HTML builders for the checklist tree, toolbar, and selector helpers.
+// Receives data and UI state as parameters — no loadData() calls inside this module.
 //
-// Layer 1: selector visibility, empty state.
-// Layer 2: filter bar, resource tally, item panels, step rows, completion.
-// Layer 3: pinned section, briefing modal, focus mode.
+// ui: { editMode, collapsed:Set, editingId, addingUnder, armedDeleteId, resetArmed }
 
 import {escHtml} from '../../common/utils.js';
+import {isLeaf, isDone, childCounts, targetOf, currentOf} from './nodes.js';
 
 // ── Selector bar helpers ──────────────────────────────────────────────────────
 
 export function updateProjectActionButtons(hasProject) {
     const editBtn = document.getElementById('editProjectBtn');
-    const addItemRow = document.getElementById('addItemRow');
     if (editBtn) editBtn.style.display = hasProject ? '' : 'none';
-    if (addItemRow) addItemRow.style.display = hasProject ? '' : 'none';
 }
 
 export function rebuildSelector(index, selectedProjectId) {
@@ -33,13 +30,35 @@ export function rebuildSelector(index, selectedProjectId) {
     );
 }
 
+// ── Small DOM helpers ─────────────────────────────────────────────────────────
+
+function _el(tag, className) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    return el;
+}
+
+function _btn(className, text, title, fn) {
+    const b = _el('button', className);
+    b.textContent = text;
+    b.title = title;
+    b.addEventListener('click', () => fn());
+    return b;
+}
+
+export function focusAddInput(key) {
+    const input = document.querySelector(`[data-add-for="${CSS.escape(key)}"]`);
+    if (input) input.focus();
+}
+
 // ── Main render ───────────────────────────────────────────────────────────────
 
-export function renderMain(selectedProjectId, stored, callbacks) {
+export function renderMain(selectedProjectId, stored, ui, callbacks) {
     const content = document.getElementById('mainContent');
     if (!content) return;
 
     if (!selectedProjectId) {
+        content.classList.remove('edit-mode');
         content.innerHTML = `
             <div class="empty-state">
                 <div class="big">✅</div>
@@ -57,581 +76,252 @@ export function renderMain(selectedProjectId, stored, callbacks) {
         return;
     }
 
-    const session = project.session || {};
-    const items = project.items || [];
-
-    // Apply filters.
-    const activeItemTags = session.activeItemTags || [];
-    const activeStepTags = session.activeStepTags || [];
-    const visibleItems = _filterItems(items, activeItemTags, activeStepTags);
+    const nodes = project.nodes || [];
+    const adding = ui.editMode || nodes.length === 0;
 
     content.innerHTML = '';
+    content.classList.toggle('edit-mode', ui.editMode);
 
-    // Filter bar.
-    content.appendChild(_renderFilterBar(project, session, callbacks));
+    content.appendChild(_renderToolbar(nodes, ui, callbacks, adding));
 
-    // Resource tally.
-    const tallyEl = _renderResourceTally(project, session);
-    if (tallyEl) content.appendChild(tallyEl);
-
-    // Active filter pills.
-    if (activeItemTags.length > 0 || activeStepTags.length > 0) {
-        content.appendChild(_renderActivePills(project, session, callbacks));
+    if (ui.editMode) {
+        const banner = _el('div', 'clm-edit-banner');
+        banner.textContent = '✏️ Edit mode';
+        content.appendChild(banner);
     }
 
-    // Empty state — no items defined yet.
-    if (items.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'empty-state';
-        empty.innerHTML = `
-            <div class="big">📋</div>
-            No items yet.<br>
-            Hit <strong>+ Item</strong> to add your first checklist item.
-        `;
-        content.appendChild(empty);
-        return;
+    if (nodes.length === 0) {
+        const hint = _el('div', 'clm-empty-hint');
+        hint.innerHTML = 'Nothing here yet.<br>Type an item below and press Enter. ' +
+            '<strong>Eggs x3</strong> makes a counter.<br>Or paste a whole outline with 📋.';
+        content.appendChild(hint);
     }
 
-    const pinnedOnly = session.pinnedOnly || false;
-    const sortedItems = _sortItems(items, project.sortMode || 'manual');
-    const pinnedItems = sortedItems.filter(i => i.pinned);
+    const tree = _el('div', 'clm-tree');
+    nodes.forEach((n, i) => {
+        tree.appendChild(_renderNode(n, ui, callbacks, {first: i === 0, last: i === nodes.length - 1}));
+    });
+    if (adding) tree.appendChild(_renderAddField('root', callbacks));
+    content.appendChild(tree);
 
-    // ── Pinned section ──
-    if (pinnedItems.length > 0) {
-        content.appendChild(
-            _renderItemSection(
-                pinnedItems, '📌 Pinned', true,
-                activeItemTags, activeStepTags,
-                project, session, callbacks
-            )
-        );
-    }
-
-    // ── All Items section (hidden in focus mode) ──
-    if (!pinnedOnly) {
-        content.appendChild(
-            _renderItemSection(
-                sortedItems, '── All Items ──', false,
-                activeItemTags, activeStepTags,
-                project, session, callbacks
-            )
-        );
+    if (ui.editingId) {
+        const input = content.querySelector('.clm-edit-name');
+        if (input) {
+            input.focus();
+            input.select();
+        }
     }
 }
 
-// ── Filter bar ────────────────────────────────────────────────────────────────
+// ── Toolbar ───────────────────────────────────────────────────────────────────
 
-function _renderFilterBar(project, session, callbacks) {
-    const wrap = document.createElement('div');
-    wrap.className = 'clm-filter-wrap';
+function _renderToolbar(nodes, ui, cb, adding) {
+    const bar = _el('div', 'clm-toolbar');
 
-    const itemTags = project.itemTags || [];
-    const stepTags = project.stepTags || [];
-    const sortMode = project.sortMode || 'manual';
-    const editMode = session.editMode || false;
-    const pinnedOnly = session.pinnedOnly || false;
+    const done = nodes.filter(isDone).length;
+    const summary = _el('span', 'clm-summary' + (nodes.length > 0 && done === nodes.length ? ' clm-summary-done' : ''));
+    summary.textContent = nodes.length > 0 ? `${done}/${nodes.length}` : '';
+    bar.appendChild(summary);
 
-    // ── Row 1: Filters ──
-    const filtersRow = document.createElement('div');
-    filtersRow.className = 'clm-filter-bar';
+    bar.appendChild(_btn(
+        'btn btn-ghost clm-tool-btn' + (ui.editMode ? ' active' : ''),
+        '✏️',
+        ui.editMode ? 'Exit edit mode' : 'Edit mode',
+        cb.onToggleEditMode
+    ));
 
-    const filtersLabel = document.createElement('span');
-    filtersLabel.className = 'clm-bar-label';
-    filtersLabel.textContent = 'Filters:';
-
-    const itemTagSel = document.createElement('select');
-    itemTagSel.className = 'clm-filter-select';
-    itemTagSel.setAttribute('aria-label', 'Filter by item tag');
-    itemTagSel.innerHTML = `<option value="">Item ▾</option>` +
-        itemTags.map(t =>
-            `<option value="${escHtml(t.id)}">${escHtml(t.emoji)} ${escHtml(t.name)}</option>`
-        ).join('');
-    itemTagSel.addEventListener('change', () => {
-        if (itemTagSel.value) callbacks.onAddItemTagFilter(itemTagSel.value);
-        itemTagSel.value = '';
-    });
-
-    const stepTagSel = document.createElement('select');
-    stepTagSel.className = 'clm-filter-select';
-    stepTagSel.setAttribute('aria-label', 'Filter by step tag');
-    stepTagSel.innerHTML = `<option value="">Step ▾</option>` +
-        stepTags.map(t =>
-            `<option value="${escHtml(t.id)}">${escHtml(t.emoji)} ${escHtml(t.name)}</option>`
-        ).join('');
-    stepTagSel.addEventListener('change', () => {
-        if (stepTagSel.value) callbacks.onAddStepTagFilter(stepTagSel.value);
-        stepTagSel.value = '';
-    });
-
-    filtersRow.appendChild(filtersLabel);
-    filtersRow.appendChild(itemTagSel);
-    filtersRow.appendChild(stepTagSel);
-
-    // ── Row 2: View ──
-    const viewRow = document.createElement('div');
-    viewRow.className = 'clm-view-bar';
-
-    const viewLabel = document.createElement('span');
-    viewLabel.className = 'clm-bar-label';
-    viewLabel.textContent = 'View:';
-
-    const pinnedBtn = document.createElement('button');
-    pinnedBtn.className = 'btn btn-ghost clm-pinned-btn' + (pinnedOnly ? ' active' : '');
-    pinnedBtn.textContent = '📌';
-    pinnedBtn.title = pinnedOnly ? 'Show all items' : 'Pinned only';
-    pinnedBtn.addEventListener('click', () => callbacks.onTogglePinnedOnly());
-
-    const sortBtn = document.createElement('button');
-    sortBtn.className = 'btn btn-ghost clm-sort-btn' + (sortMode !== 'manual' ? ' active' : '');
-    sortBtn.textContent = sortMode === 'name-asc' ? 'A↑' : sortMode === 'name-desc' ? 'A↓' : '≡';
-    sortBtn.title = sortMode === 'name-asc' ? 'Sorted A→Z' :
-        sortMode === 'name-desc' ? 'Sorted Z→A' : 'Manual order';
-    sortBtn.addEventListener('click', () => callbacks.onCycleSortMode());
-
-    const resetBtn = document.createElement('button');
-    resetBtn.className = 'btn btn-ghost clm-reset-btn';
-    resetBtn.textContent = '↺ Reset';
-    resetBtn.title = 'Reset all steps';
-    resetBtn.addEventListener('click', () => callbacks.onResetAll());
-
-    viewRow.appendChild(viewLabel);
-    viewRow.appendChild(pinnedBtn);
-
-    if (sortMode === 'manual') {
-        const editBtn = document.createElement('button');
-        editBtn.className = 'btn btn-ghost clm-edit-mode-btn' + (editMode ? ' active' : '');
-        editBtn.textContent = '✏️';
-        editBtn.title = editMode ? 'Exit reorder mode' : 'Reorder items';
-        editBtn.addEventListener('click', () => callbacks.onToggleEditMode());
-        viewRow.appendChild(editBtn);
+    if (adding) {
+        bar.appendChild(_btn('btn btn-ghost clm-tool-btn', '📋', 'Paste an outline', cb.onOpenImport));
     }
 
-    viewRow.appendChild(sortBtn);
-    viewRow.appendChild(resetBtn);
+    const reset = _btn(
+        'btn btn-ghost clm-tool-btn clm-reset-btn' + (ui.resetArmed ? ' armed' : ''),
+        ui.resetArmed ? '↺ Sure?' : '↺ Reset',
+        'Untick everything',
+        cb.onResetAll
+    );
+    if (nodes.length === 0) reset.disabled = true;
+    bar.appendChild(reset);
 
-    wrap.appendChild(filtersRow);
-    wrap.appendChild(viewRow);
+    return bar;
+}
+
+// ── Node ──────────────────────────────────────────────────────────────────────
+
+function _renderNode(node, ui, cb, pos) {
+    const wrap = _el('div', 'clm-node');
+    wrap.dataset.id = node.id;
+
+    wrap.appendChild(
+        ui.editingId === node.id ? _renderEditor(node, cb) : _renderRow(node, ui, cb, pos)
+    );
+
+    const leaf = isLeaf(node);
+    const showAdd = ui.addingUnder === node.id;
+
+    if ((!leaf && !ui.collapsed.has(node.id)) || showAdd) {
+        const kids = _el('div', 'clm-children');
+        const children = node.children || [];
+        children.forEach((c, i) => {
+            kids.appendChild(_renderNode(c, ui, cb, {first: i === 0, last: i === children.length - 1}));
+        });
+        if (showAdd) kids.appendChild(_renderAddField(node.id, cb));
+        wrap.appendChild(kids);
+    }
+
     return wrap;
 }
 
-// ── Item section (Pinned / All Items) ────────────────────────────────────────
+function _renderRow(node, ui, cb, pos) {
+    const leaf = isLeaf(node);
+    const done = isDone(node);
+    const target = targetOf(node);
+    const counter = leaf && target > 1;
+    const collapsed = ui.collapsed.has(node.id);
+    const armed = ui.armedDeleteId === node.id;
+    const name = escHtml(node.name);
 
-function _renderItemSection(
-    sectionItems, label, isPinned,
-    activeItemTags, activeStepTags,
-    project, session, callbacks
-) {
-    const wrap = document.createElement('div');
-    wrap.className = 'clm-section' + (isPinned ? ' clm-section-pinned' : '');
+    const row = _el('div', 'clm-row' + (done ? ' clm-done' : '') + (leaf ? '' : ' clm-parent'));
 
-    // Section header with label and reset button.
-    const header = document.createElement('div');
-    header.className = 'clm-section-header';
-    header.innerHTML = `
-        <span class="clm-section-label">${escHtml(label)}</span>
-        <button class="btn btn-ghost clm-section-reset"
-                aria-label="${isPinned ? 'Reset pinned items' : 'Reset all items'}">↺</button>
-    `;
-    header.querySelector('.clm-section-reset').addEventListener('click', () => {
-        isPinned
-            ? callbacks.onResetPinned()
-            : callbacks.onResetAll();
-    });
-    wrap.appendChild(header);
+    const toggleHtml = leaf ? '' : `
+        <button class="clm-toggle" data-action="collapse"
+                aria-expanded="${!collapsed}"
+                aria-label="${collapsed ? 'Expand' : 'Collapse'} ${name}">${collapsed ? '▶' : '▼'}</button>`;
 
-    const listEl = document.createElement('div');
-    listEl.className = 'clm-item-list';
-
-    let rendered = 0;
-    sectionItems.forEach(item => {
-        const visibleSteps = _visibleStepsForItem(item, activeStepTags);
-        if (activeStepTags.length > 0 && visibleSteps.length === 0) return;
-        if (activeItemTags.length > 0 &&
-            !(item.tags || []).some(t => activeItemTags.includes(t))) return;
-
-        listEl.appendChild(
-            _renderItemPanel(item, visibleSteps, project, session, callbacks)
-        );
-        rendered++;
-    });
-
-    // If all items were filtered out, show a hint.
-    if (rendered === 0) {
-        const hint = document.createElement('div');
-        hint.className = 'clm-section-empty';
-        hint.textContent = 'No items match the active filters.';
-        listEl.appendChild(hint);
+    let tailHtml = '';
+    if (counter) {
+        const v = currentOf(node);
+        tailHtml = `
+            <span class="clm-counter">
+                <button class="clm-step-btn" data-action="minus"
+                        aria-label="Decrease ${name}" ${v <= 0 ? 'disabled' : ''}>−</button>
+                <span class="clm-counter-val" aria-live="polite" aria-atomic="true">${v}/${target}</span>
+                <button class="clm-step-btn clm-step-plus" data-action="plus"
+                        aria-label="Increase ${name}" ${v >= target ? 'disabled' : ''}>+</button>
+            </span>`;
+    } else if (!leaf) {
+        const c = childCounts(node);
+        tailHtml = `<span class="clm-count">${c.done}/${c.total}</span>`;
     }
 
-    wrap.appendChild(listEl);
-    return wrap;
-}
-
-// ── Active filter pills ───────────────────────────────────────────────────────
-
-function _renderActivePills(project, session, callbacks) {
-    const row = document.createElement('div');
-    row.className = 'clm-active-pills';
-
-    const mode = session.pillDisplayMode || 'emoji';
-    const activeItemTags = session.activeItemTags || [];
-    const activeStepTags = session.activeStepTags || [];
-
-    const makePill = (tag, onRemove) => {
-        const pill = document.createElement('span');
-        pill.className = 'clm-pill';
-        pill.innerHTML = mode === 'emoji'
-            ? `${escHtml(tag.emoji)} <button class="clm-pill-remove" aria-label="Remove filter">×</button>`
-            : `${escHtml(tag.name)} <button class="clm-pill-remove" aria-label="Remove filter">×</button>`;
-        pill.querySelector('.clm-pill-remove').addEventListener('click', e => {
-            e.stopPropagation();
-            onRemove(tag.id);
-        });
-        return pill;
-    };
-
-    (project.itemTags || [])
-        .filter(t => activeItemTags.includes(t.id))
-        .forEach(t => row.appendChild(makePill(t, id => callbacks.onRemoveItemTagFilter(id))));
-
-    (project.stepTags || [])
-        .filter(t => activeStepTags.includes(t.id))
-        .forEach(t => row.appendChild(makePill(t, id => callbacks.onRemoveStepTagFilter(id))));
-
-    // Toggle pill display mode.
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'btn btn-ghost clm-pill-mode-btn';
-    toggleBtn.textContent = mode === 'emoji' ? 'Aa' : '😀';
-    toggleBtn.title = mode === 'emoji' ? 'Show tag names' : 'Show tag emoji';
-    toggleBtn.addEventListener('click', () => callbacks.onTogglePillMode());
-    row.appendChild(toggleBtn);
-
-    return row;
-}
-
-// ── Resource tally ────────────────────────────────────────────────────────────
-
-function _renderResourceTally(project, session) {
-    const resources = project.resources || [];
-    if (resources.length === 0) return null;
-
-    // Tally counts pinned items only — reflects current service commitment.
-    const pinnedItems = (project.items || []).filter(i => i.pinned);
-    if (pinnedItems.length === 0) return null;
-
-    const stepState = session.stepState || {};
-
-    const tally = document.createElement('div');
-    tally.className = 'clm-tally';
-
-    const tallyLabel = document.createElement('div');
-    tallyLabel.className = 'clm-tally-heading';
-    tallyLabel.textContent = 'Inventory (pinned)';
-    tally.appendChild(tallyLabel);
-
-    resources.forEach(res => {
-        // Sum: for each pinned item, for each step, resourceCost × current executions.
-        const used = pinnedItems.reduce((itemSum, item) => {
-            return itemSum + (item.steps || []).reduce((stepSum, step) => {
-                const cost = (step.resourceCosts || {})[res.id] || 0;
-                const current = (stepState[step.id] || {current: 0}).current;
-                return stepSum + cost * current;
-            }, 0);
-        }, 0);
-
-        const over = used > res.capacity;
-
-        const row = document.createElement('div');
-        row.className = 'clm-tally-row' + (over ? ' clm-tally-over' : '');
-        row.innerHTML = `
-            <span class="clm-tally-label">${escHtml(res.emoji)} ${escHtml(res.name)}</span>
-            <span class="clm-tally-count">${used}/${res.capacity}</span>
-            <div class="clm-tally-bar-wrap">
-                <div class="clm-tally-bar-fill"
-                     style="width:${Math.min(100, res.capacity > 0
-            ? (used / res.capacity) * 100 : 0)}%;
-                            background:${over ? 'var(--accent2)' : 'var(--accent)'}">
-                </div>
-            </div>
-        `;
-        tally.appendChild(row);
-    });
-
-    return tally;
-}
-
-// ── Item panel ────────────────────────────────────────────────────────────────
-
-function _renderItemPanel(item, visibleSteps, project, session, callbacks) {
-    const stepState = session.stepState || {};
-    const editMode = session.editMode || false;
-    const expandedItems = session.expandedItems || new Set();
-    const isExpanded = expandedItems.has(item.id);
-    const isComplete = _isItemComplete(item, visibleSteps, stepState);
-
-    const panel = document.createElement('div');
-    panel.className = 'clm-item-panel' + (isComplete ? ' clm-item-complete' : '');
-    panel.dataset.itemId = item.id;
-
-    // Item tag chips (emoji only in header).
-    const tagChips = (item.tags || [])
-        .map(tid => {
-            const tag = (project.itemTags || []).find(t => t.id === tid);
-            return tag
-                ? `<span class="clm-item-tag-chip" title="${escHtml(tag.name)}">${escHtml(tag.emoji)}</span>`
-                : '';
-        }).join('');
-
-    panel.innerHTML = `
-        <div class="clm-item-header">
-            <button class="clm-item-expand-btn" data-action="toggle-expand"
-                    aria-label="${isExpanded ? 'Collapse' : 'Expand'} item"
-                    aria-expanded="${isExpanded}">${isExpanded ? '▼' : '▶'}</button>
-            ${editMode ? `
-                <div class="clm-item-order-btns">
-                    <button class="clm-item-order-btn" data-action="item-move-up"
-                            aria-label="Move item up">▲</button>
-                    <button class="clm-item-order-btn" data-action="item-move-down"
-                            aria-label="Move item down">▼</button>
-                </div>` : ''}
-            <span class="clm-item-complete-indicator">${isComplete ? '✔' : ''}</span>
-            <span class="clm-item-name clm-item-name-link"
-                  role="button" tabindex="0"
-                  aria-label="Open briefing for ${escHtml(item.name)}"
-                  data-action="open-briefing">${escHtml(item.name)}</span>
-            <div class="clm-item-header-right">
-                ${tagChips}
-                ${item.pinned ? '<span class="clm-pin-indicator">📌</span>' : ''}
-                <button class="clm-item-edit-btn" data-action="edit-item"
-                        aria-label="Edit item">✎</button>
-                <button class="clm-item-reset-btn" data-action="reset-item"
-                        aria-label="Reset item">↺</button>
-            </div>
-        </div>
-        <div class="clm-step-list${isExpanded ? '' : ' clm-step-list-collapsed'}"></div>
-    `;
-
-    // Wire item header buttons.
-    panel.querySelector('[data-action="toggle-expand"]').addEventListener('click', e => {
-        e.stopPropagation();
-        callbacks.onToggleExpanded(item.id);
-    });
-
-    panel.querySelector('[data-action="edit-item"]').addEventListener('click', e => {
-        e.stopPropagation();
-        callbacks.onEditItem(item.id);
-    });
-
-    panel.querySelector('[data-action="reset-item"]').addEventListener('click', e => {
-        e.stopPropagation();
-        callbacks.onResetItem(item.id);
-    });
-
-    if (editMode) {
-        panel.querySelector('[data-action="item-move-up"]').addEventListener('click', e => {
-            e.stopPropagation();
-            callbacks.onMoveItem(item.id, -1);
-        });
-        panel.querySelector('[data-action="item-move-down"]').addEventListener('click', e => {
-            e.stopPropagation();
-            callbacks.onMoveItem(item.id, 1);
-        });
+    let controlsHtml = '';
+    if (ui.editMode) {
+        controlsHtml = `
+            <div class="clm-edit-controls">
+                <button class="clm-node-btn" data-action="up" aria-label="Move up" ${pos.first ? 'disabled' : ''}>▲</button>
+                <button class="clm-node-btn" data-action="down" aria-label="Move down" ${pos.last ? 'disabled' : ''}>▼</button>
+                <button class="clm-node-btn" data-action="edit" aria-label="Edit ${name}">✎</button>
+                <button class="clm-node-btn blue" data-action="add" aria-label="Add sub-item to ${name}">+</button>
+                <button class="clm-node-btn red${armed ? ' armed' : ''}" data-action="delete"
+                        aria-label="Delete ${name}">${armed ? 'Delete?' : '🗑'}</button>
+            </div>`;
+    } else if (!leaf) {
+        controlsHtml = `
+            <button class="clm-node-btn" data-action="reset"
+                    aria-label="Reset ${name}" title="Untick everything inside">↺</button>`;
     }
-
-    // Long-press to pin.
-    callbacks.onAttachLongPress(panel, () => callbacks.onTogglePinned(item.id));
-
-    // Tap item name to open briefing.
-    panel.querySelector('[data-action="open-briefing"]').addEventListener('click', e => {
-        e.stopPropagation();
-        callbacks.onOpenBriefing(item.id);
-    });
-
-    // Render steps.
-    const stepList = panel.querySelector('.clm-step-list');
-    visibleSteps.forEach(step => {
-        stepList.appendChild(_renderStepRow(step, item, stepState, project, callbacks));
-    });
-
-    return panel;
-}
-
-// ── Step row ──────────────────────────────────────────────────────────────────
-
-function _renderStepRow(step, item, stepState, project, callbacks) {
-    const state = stepState[step.id] || {current: 0};
-    const current = state.current;
-    const isDone = current >= 1;
-
-    // Resource cost badges for this step.
-    const resources = project.resources || [];
-    const stepCosts = step.resourceCosts || {};
-    const resourceBadges = resources
-        .filter(res => (stepCosts[res.id] || 0) > 0)
-        .map(res =>
-            `<span class="clm-step-resource-badge">
-                ${escHtml(res.emoji)} ×${stepCosts[res.id]}
-            </span>`
-        ).join('');
-
-    // Step tag chips.
-    const tagChips = (step.tags || [])
-        .map(tid => {
-            const tag = (project.stepTags || []).find(t => t.id === tid);
-            return tag
-                ? `<span class="clm-step-tag-chip">${escHtml(tag.emoji)} ${escHtml(tag.name)}</span>`
-                : '';
-        }).join('');
-
-    const row = document.createElement('div');
-    row.className = 'clm-step-row' + (isDone ? ' clm-step-done' : '');
-    row.dataset.stepId = step.id;
 
     row.innerHTML = `
-        <div class="clm-step-left">
-            <button class="clm-step-add-btn${isDone ? ' clm-step-add-btn-done' : ''}"
-                    data-action="step-add"
-                    aria-label="Execute step${current > 0 ? ' again' : ''}"
-                    aria-pressed="${isDone}">
-                ${isDone ? '✔' : '+'}
-            </button>
-            ${current > 1
-        ? `<span class="clm-step-batch-count"
-                         aria-live="polite" aria-atomic="true">×${current}</span>`
-        : ''}
-        </div>
-        <div class="clm-step-body">
-            <div class="clm-step-title-row">
-                <span class="clm-step-title">${escHtml(step.title)}</span>
-                <div class="clm-step-right">
-                    ${resourceBadges}
-                    <div class="clm-step-tags">${tagChips}</div>
-                </div>
-            </div>
-            ${step.description ? `
-                <div class="clm-step-desc-toggle" data-action="toggle-desc"
-                     aria-expanded="false">▶ details</div>
-                <div class="clm-step-desc" style="display:none">${escHtml(step.description)}</div>
-            ` : ''}
-        </div>
+        <span class="clm-toggle-slot">${toggleHtml}</span>
+        <button class="clm-check${done ? ' clm-check-on' : ''}" data-action="tick"
+                role="checkbox" aria-checked="${done}"
+                aria-label="${name}">${done ? '✔' : ''}</button>
+        <span class="clm-name" data-action="name">${name}</span>
+        ${tailHtml}
+        ${controlsHtml}
     `;
 
-    // + button — first tap marks done, subsequent taps add batches.
-    row.querySelector('[data-action="step-add"]').addEventListener('click', () => {
-        callbacks.onStepCount(step.id, item.id, 1);
-    });
-
-    // Description toggle.
-    const descToggle = row.querySelector('[data-action="toggle-desc"]');
-    if (descToggle) {
-        descToggle.addEventListener('click', () => {
-            const desc = row.querySelector('.clm-step-desc');
-            if (!desc) return;
-            const open = desc.style.display !== 'none';
-            desc.style.display = open ? 'none' : '';
-            descToggle.textContent = open ? '▶ details' : '▼ details';
-            descToggle.setAttribute('aria-expanded', String(!open));
+    const on = (action, fn) => {
+        const el = row.querySelector(`[data-action="${action}"]`);
+        if (el) el.addEventListener('click', e => {
+            e.stopPropagation();
+            fn();
         });
-    }
+    };
+
+    on('tick', () => cb.onToggleNode(node.id));
+    on('minus', () => cb.onCounterStep(node.id, -1));
+    on('plus', () => cb.onCounterStep(node.id, 1));
+    on('collapse', () => cb.onToggleCollapse(node.id));
+    on('reset', () => cb.onResetNode(node.id));
+    on('up', () => cb.onMoveNode(node.id, -1));
+    on('down', () => cb.onMoveNode(node.id, 1));
+    on('edit', () => cb.onStartEdit(node.id));
+    on('add', () => cb.onStartAdd(node.id));
+    on('delete', () => cb.onDeleteNode(node.id));
+
+    // Name tap: parents collapse/expand, plain leaves tick, counters do nothing.
+    on('name', () => {
+        if (!leaf) cb.onToggleCollapse(node.id);
+        else if (!counter) cb.onToggleNode(node.id);
+    });
 
     return row;
 }
 
-// ── Briefing modal ────────────────────────────────────────────────────────────
+// ── Inline editor ─────────────────────────────────────────────────────────────
 
-export function renderBriefingModal(item, project, session) {
-    const modal = document.getElementById('briefingModal');
-    const titleEl = document.getElementById('briefingTitle');
-    const bodyEl = document.getElementById('briefingBody');
-    if (!modal || !titleEl || !bodyEl) return;
+function _renderEditor(node, cb) {
+    const leaf = isLeaf(node);
+    const row = _el('div', 'clm-row clm-editor');
 
-    titleEl.textContent = item.name;
+    row.innerHTML = `
+        <input type="text" class="clm-edit-name" value="${escHtml(node.name)}"
+               maxlength="120" aria-label="Name" autocomplete="off">
+        ${leaf ? `<input type="number" class="clm-edit-target" value="${targetOf(node)}"
+               min="1" max="99999" aria-label="Target count"
+               title="Target count (1 = plain checkbox)">` : ''}
+        <button class="clm-ed-btn" data-action="save" aria-label="Save">✔</button>
+        <button class="clm-ed-btn" data-action="cancel" aria-label="Cancel">✕</button>
+    `;
 
-    const showAll = session.briefingShowAll || false;
-    const activeStepTags = session.activeStepTags || [];
-    const hasFilter = activeStepTags.length > 0;
+    const nameIn = row.querySelector('.clm-edit-name');
+    const targetIn = row.querySelector('.clm-edit-target');
+    const save = () => cb.onSaveEdit(node.id, nameIn.value, targetIn ? targetIn.value : null);
 
-    // Update toggle button state.
-    const allBtn = document.getElementById('briefingToggleAll');
-    const filteredBtn = document.getElementById('briefingToggleFiltered');
-    if (allBtn) allBtn.classList.toggle('active', showAll);
-    if (filteredBtn) filteredBtn.classList.toggle('active', !showAll);
-
-    // Dim toggle when no filter active — both views identical.
-    const toggleWrap = document.getElementById('briefingToggleWrap');
-    if (toggleWrap) toggleWrap.style.opacity = hasFilter ? '1' : '0.35';
-
-    const steps = item.steps || [];
-    const visibleSteps = (!showAll && hasFilter)
-        ? steps.filter(s => (s.tags || []).some(tid => activeStepTags.includes(tid)))
-        : steps;
-
-    bodyEl.innerHTML = '';
-
-    if (visibleSteps.length === 0) {
-        bodyEl.innerHTML = '<div class="briefing-empty">No steps to show.</div>';
-        return;
-    }
-
-    visibleSteps.forEach(step => {
-        const row = document.createElement('div');
-        row.className = 'briefing-step';
-
-        const stepTags = (step.tags || [])
-            .map(tid => {
-                const tag = (project.stepTags || []).find(t => t.id === tid);
-                return tag
-                    ? `<span class="clm-step-tag-chip">${escHtml(tag.emoji)} ${escHtml(tag.name)}</span>`
-                    : '';
-            }).join('');
-
-        row.innerHTML = `
-            <div class="briefing-step-title">
-                ${escHtml(step.title)}
-                <div class="clm-step-tags">${stepTags}</div>
-            </div>
-            ${step.description
-            ? `<div class="briefing-step-desc">${escHtml(step.description)}</div>`
-            : ''}
-        `;
-        bodyEl.appendChild(row);
+    [nameIn, targetIn].forEach(input => {
+        if (!input) return;
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                save();
+            } else if (e.key === 'Escape') {
+                cb.onCancelEdit();
+            }
+        });
     });
+    row.querySelector('[data-action="save"]').addEventListener('click', save);
+    row.querySelector('[data-action="cancel"]').addEventListener('click', () => cb.onCancelEdit());
+
+    return row;
 }
 
-// ── Filter helpers ────────────────────────────────────────────────────────────
+// ── Inline add field ──────────────────────────────────────────────────────────
 
-function _visibleStepsForItem(item, activeStepTags) {
-    const steps = item.steps || [];
-    if (activeStepTags.length === 0) return steps;
-    return steps.filter(s =>
-        (s.tags || []).some(tid => activeStepTags.includes(tid))
-    );
-}
+function _renderAddField(key, cb) {
+    const row = _el('div', 'clm-add-row');
+    row.innerHTML = `
+        <input type="text" class="clm-add-input" data-add-for="${escHtml(key)}"
+               placeholder="Add item…  (e.g. Eggs x3)" maxlength="120"
+               aria-label="Add item" autocomplete="off">
+        <button class="clm-ed-btn" data-action="add-submit" aria-label="Add">+</button>
+    `;
 
-function _filterItems(items, activeItemTags, activeStepTags) {
-    return items.filter(item => {
-        if (activeItemTags.length > 0 &&
-            !(item.tags || []).some(t => activeItemTags.includes(t))) return false;
-        if (activeStepTags.length > 0 &&
-            _visibleStepsForItem(item, activeStepTags).length === 0) return false;
-        return true;
+    const input = row.querySelector('input');
+    const submit = () => {
+        if (!input.value.trim()) return;
+        cb.onAddNode(key === 'root' ? null : key, input.value);
+    };
+
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submit();
+        } else if (e.key === 'Escape' && key !== 'root') {
+            cb.onCancelAdd();
+        }
     });
-}
+    row.querySelector('[data-action="add-submit"]').addEventListener('click', submit);
 
-function _isItemComplete(item, visibleSteps, stepState) {
-    if (visibleSteps.length === 0) return false;
-    return visibleSteps.every(step => {
-        const state = stepState[step.id] || {current: 0};
-        return state.current >= 1;
-    });
-}
-
-// ── Sort helper ───────────────────────────────────────────────────────────────
-
-function _sortItems(items, sortMode) {
-    const copy = [...items];
-    if (sortMode === 'name-asc') return copy.sort((a, b) => a.name.localeCompare(b.name));
-    if (sortMode === 'name-desc') return copy.sort((a, b) => b.name.localeCompare(a.name));
-    // Manual — sort by sortOrder field.
-    return copy.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    return row;
 }

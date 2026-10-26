@@ -1,9 +1,12 @@
 // ChecklistManager/js/main.js
-// Entry point: module-level state, selector, event wiring, window globals, init IIFE.
+// Entry point: module-level state, selector, tree interactions, window globals, init IIFE.
+//
+// Tick state lives in the project blob (project.nodes). UI-only state (_ui) is never persisted.
+// All tree edits go through _mutate(): write to localStorage immediately, re-render,
+// and schedule a debounced Supabase sync (2s after the last change).
 
 import {
-    loadData, loadProject, saveData, localSave,
-    deleteProject, resolveCollision,
+    loadData, loadProject, saveData, localSave, resolveCollision,
     STORAGE_KEY, STORAGE_SELECTED,
     subscribeToProjectChanges, unsubscribeFromProjectChanges,
 } from './storage.js';
@@ -11,18 +14,18 @@ import {
     TOOL_CONFIG, cacheSet, cacheDelete, localLoad,
 } from '../../common/migrations.js';
 import {
-    renderMain, rebuildSelector, updateProjectActionButtons,
-    renderBriefingModal,
+    renderMain, rebuildSelector, updateProjectActionButtons, focusAddInput,
 } from './render.js';
 import {
-    openAddProjectModal, openEditProjectModal, closeProjectModal,
-    saveProjectModal, promptDeleteProject, cancelDeleteProject,
-    confirmDeleteProject, addResourceRow, addItemTagRow, addStepTagRow,
-    openAddItemModal, openEditItemModal, closeItemModal, saveItemModal,
-    addStepRow,
+    openAddProjectModal, openEditProjectModal, closeProjectModal, saveProjectModal,
+    promptDeleteProject, cancelDeleteProject, confirmDeleteProject,
+    openImportModal, closeImportModal, saveImportModal,
 } from './modal.js';
+import {
+    findNode, removeNode, moveNode, attachChild, makeNode, parseLine, clampTarget,
+    isLeaf, isDone, setDone, stepLeaf, convertLegacyProject,
+} from './nodes.js';
 import {initAuth, showCollisionModal} from '../../common/auth-ui.js';
-import {attachLongPress} from '../../common/utils.js';
 import {supabase} from '../../common/supabase.js';
 import {getUser} from '../../common/auth.js';
 
@@ -31,27 +34,92 @@ const CFG = TOOL_CONFIG.checklistManager;
 // ── Module-level state ────────────────────────────────────────────────────────
 
 let selectedProjectId = null;
-let _editMode = false;   // UI-only reorder mode; not persisted to Supabase
-let _syncTimer = null;    // debounced Supabase write timer
-let _briefingItemId = null;    // item currently shown in briefing modal
-let _expandedItems = new Set(); // UI-only; item IDs whose step list is expanded
+let _syncTimer = null;
+let _syncProjectId = null;
+let _focusAdd = null;   // add-field key to focus after the next render
+
+const _ui = {
+    editMode: false,
+    collapsed: new Set(),
+    editingId: null,
+    addingUnder: null,
+    armedDeleteId: null,
+    resetArmed: false,
+};
 
 // ── Local storage read ────────────────────────────────────────────────────────
 
 const _localLoad = () => localLoad(STORAGE_KEY);
 
 // ── Debounced Supabase sync ───────────────────────────────────────────────────
-// Session state (step ticks, counter increments) writes to localStorage
-// immediately and schedules a Supabase sync 2 seconds later — same pattern
-// as TrophyHunter.
 
 function _scheduleSync(projectId) {
     if (_syncTimer) clearTimeout(_syncTimer);
+    _syncProjectId = projectId;
     _syncTimer = setTimeout(async () => {
+        const id = _syncProjectId;
         _syncTimer = null;
-        const stored = _localLoad();
-        await saveData(stored, projectId);
+        _syncProjectId = null;
+        await saveData(_localLoad(), id);
     }, 2000);
+}
+
+async function _flushSync() {
+    if (_syncTimer === null) return;
+    clearTimeout(_syncTimer);
+    const id = _syncProjectId;
+    _syncTimer = null;
+    _syncProjectId = null;
+    await saveData(_localLoad(), id);
+}
+
+// ── Legacy conversion ─────────────────────────────────────────────────────────
+// Projects saved by the old item/step model are converted in place the first
+// time they are rendered. Runs against the stored object, then syncs.
+
+function _ensureNodes(stored) {
+    const project = selectedProjectId ? stored.blobs[selectedProjectId] : null;
+    if (!project || Array.isArray(project.nodes)) return;
+    cacheSet(stored, convertLegacyProject(project), CFG);
+    localSave(stored);
+    _scheduleSync(selectedProjectId);
+}
+
+// ── Render orchestration ──────────────────────────────────────────────────────
+
+function _render(stored) {
+    _ensureNodes(stored);
+    renderMain(selectedProjectId, stored, _ui, _callbacks);
+    if (_focusAdd) {
+        focusAddInput(_focusAdd);
+        _focusAdd = null;
+    }
+}
+
+function _resetUiState() {
+    _ui.editMode = false;
+    _ui.collapsed.clear();
+    _ui.editingId = null;
+    _ui.addingUnder = null;
+    _ui.armedDeleteId = null;
+    _ui.resetArmed = false;
+}
+
+// Applies a change to the selected project, persists locally, re-renders, schedules sync.
+function _mutate(fn) {
+    const stored = _localLoad();
+    const project = selectedProjectId ? stored.blobs[selectedProjectId] : null;
+    if (!project || !Array.isArray(project.nodes)) return;
+
+    _ui.armedDeleteId = null;
+    _ui.resetArmed = false;
+
+    fn(project);
+
+    cacheSet(stored, project, CFG);
+    localSave(stored);
+    _scheduleSync(selectedProjectId);
+    _render(stored);
 }
 
 // ── Realtime: handle incoming remote update ───────────────────────────────────
@@ -71,11 +139,12 @@ function _onRemoteUpdate(payload) {
         if (selectedProjectId === id) {
             selectedProjectId = null;
             localStorage.removeItem(STORAGE_SELECTED);
+            _resetUiState();
             updateProjectActionButtons(false);
         }
 
         rebuildSelector(stored.index, selectedProjectId);
-        _doRenderMain(_localLoad());
+        _render(_localLoad());
         return;
     }
 
@@ -84,10 +153,13 @@ function _onRemoteUpdate(payload) {
     if (!row || !row.data) return;
 
     const remoteProject = {...row.data, last_modified: row.updated_at};
+
+    // Local edits in flight win for the open project.
+    if (remoteProject.id === selectedProjectId && (_syncTimer !== null || _ui.editingId)) return;
+
     const stored = _localLoad();
     const indexEntry = stored.index.find(e => e.id === remoteProject.id);
 
-    // Skip if remote isn't strictly newer.
     if (indexEntry) {
         const localTime = indexEntry.last_modified ? new Date(indexEntry.last_modified) : null;
         const remoteTime = remoteProject.last_modified ? new Date(remoteProject.last_modified) : null;
@@ -95,7 +167,6 @@ function _onRemoteUpdate(payload) {
     }
 
     if (!indexEntry) {
-        // New project from another device.
         cacheSet(stored, remoteProject, CFG);
         localSave(stored);
         rebuildSelector(stored.index, selectedProjectId);
@@ -115,16 +186,17 @@ function _onRemoteUpdate(payload) {
     localSave(stored);
 
     if (remoteProject.id === selectedProjectId) {
-        _doRenderMain(_localLoad());
+        _render(_localLoad());
     }
 }
 
 // ── Project selector ──────────────────────────────────────────────────────────
 
 async function selectProject(id) {
+    await _flushSync();
+
     selectedProjectId = id || null;
-    _expandedItems.clear();
-    _editMode = false;
+    _resetUiState();
 
     if (selectedProjectId) {
         localStorage.setItem(STORAGE_SELECTED, selectedProjectId);
@@ -138,7 +210,7 @@ async function selectProject(id) {
     );
 
     if (!selectedProjectId) {
-        _doRenderMain(stored);
+        _render(stored);
         return;
     }
 
@@ -149,11 +221,19 @@ async function selectProject(id) {
             project.name,
             collision,
             resolveCollision,
-            async () => _doRenderMain(_localLoad()),
+            () => _afterSelect(),
         );
     } else {
-        _doRenderMain(_localLoad());
+        _afterSelect();
     }
+}
+
+function _afterSelect() {
+    const stored = _localLoad();
+    _ensureNodes(stored);
+    const project = selectedProjectId ? stored.blobs[selectedProjectId] : null;
+    if (project && Array.isArray(project.nodes) && project.nodes.length === 0) _focusAdd = 'root';
+    _render(stored);
 }
 
 function _restoreSelectedProject(index) {
@@ -162,477 +242,242 @@ function _restoreSelectedProject(index) {
     return null;
 }
 
-// ── Render orchestration ──────────────────────────────────────────────────────
+// ── Tree interactions ─────────────────────────────────────────────────────────
 
-function _doRenderMain(stored) {
-    // If the briefing is open, keep it in sync with the current session
-    // (e.g. active step filters changed while briefing was open).
-    if (_briefingItemId && selectedProjectId) {
-        const project = stored.blobs[selectedProjectId];
-        if (project) {
-            const item = (project.items || []).find(i => i.id === _briefingItemId);
-            if (item) renderBriefingModal(item, project, project.session || {});
-        }
-    }
-
-    // Inject UI-only state as a session overlay — never written to storage.
-    const overlaid = !selectedProjectId ? stored : {
-        ...stored,
-        blobs: {
-            ...stored.blobs,
-            [selectedProjectId]: stored.blobs[selectedProjectId]
-                ? {
-                    ...stored.blobs[selectedProjectId],
-                    session: {
-                        ...(stored.blobs[selectedProjectId].session || {}),
-                        editMode: _editMode,
-                        expandedItems: _expandedItems,
-                    },
-                }
-                : stored.blobs[selectedProjectId],
-        },
-    };
-    renderMain(selectedProjectId, overlaid, _callbacks);
+function onToggleNode(id) {
+    _mutate(p => {
+        const n = findNode(p.nodes, id);
+        if (n) setDone(n, !isDone(n));
+    });
 }
 
-// ── Callbacks ────────────────────────────────────────────────────────────────
+function onCounterStep(id, dir) {
+    _mutate(p => {
+        const n = findNode(p.nodes, id);
+        if (n) stepLeaf(n, dir);
+    });
+}
+
+function onResetNode(id) {
+    _mutate(p => {
+        const n = findNode(p.nodes, id);
+        if (n) setDone(n, false);
+    });
+}
+
+function onToggleCollapse(id) {
+    if (_ui.collapsed.has(id)) _ui.collapsed.delete(id);
+    else _ui.collapsed.add(id);
+    _render(_localLoad());
+}
+
+function onMoveNode(id, dir) {
+    _mutate(p => moveNode(p.nodes, id, dir));
+}
+
+function onStartEdit(id) {
+    _ui.editingId = id;
+    _ui.armedDeleteId = null;
+    _render(_localLoad());
+}
+
+function onCancelEdit() {
+    _ui.editingId = null;
+    _render(_localLoad());
+}
+
+function onSaveEdit(id, rawName, rawTarget) {
+    const name = String(rawName).trim();
+    if (!name) return;   // stay in the editor until there is a name
+    _ui.editingId = null;
+    _mutate(p => {
+        const n = findNode(p.nodes, id);
+        if (!n) return;
+        n.name = name;
+        if (isLeaf(n) && rawTarget !== null) {
+            const t = clampTarget(rawTarget);
+            n.target = t;
+            n.value = Math.min(parseInt(n.value, 10) || 0, t);
+        }
+    });
+}
+
+// Deleting a node that has children takes two taps; a leaf goes immediately.
+function onDeleteNode(id) {
+    const stored = _localLoad();
+    const project = selectedProjectId ? stored.blobs[selectedProjectId] : null;
+    if (!project) return;
+    const node = findNode(project.nodes, id);
+    if (!node) return;
+
+    if (!isLeaf(node) && _ui.armedDeleteId !== id) {
+        _ui.armedDeleteId = id;
+        setTimeout(() => {
+            if (_ui.armedDeleteId === id) {
+                _ui.armedDeleteId = null;
+                _render(_localLoad());
+            }
+        }, 4000);
+        _render(stored);
+        return;
+    }
+
+    _ui.editingId = null;
+    _ui.addingUnder = null;
+    _mutate(p => removeNode(p.nodes, id));
+}
+
+function onStartAdd(id) {
+    _ui.addingUnder = _ui.addingUnder === id ? null : id;
+    _ui.armedDeleteId = null;
+    if (_ui.addingUnder) {
+        _ui.collapsed.delete(id);
+        _focusAdd = id;
+    }
+    _render(_localLoad());
+}
+
+function onCancelAdd() {
+    _ui.addingUnder = null;
+    _render(_localLoad());
+}
+
+function onAddNode(parentId, text) {
+    const {name, target, done} = parseLine(text);
+    if (!name) return;
+    _focusAdd = parentId || 'root';
+    _mutate(p => {
+        const node = makeNode(name, target, done);
+        if (parentId) {
+            const parent = findNode(p.nodes, parentId);
+            if (!parent) return;
+            attachChild(parent, node);
+            _ui.collapsed.delete(parentId);
+        } else {
+            p.nodes.push(node);
+        }
+    });
+}
+
+function onToggleEditMode() {
+    _ui.editMode = !_ui.editMode;
+    _ui.editingId = null;
+    _ui.addingUnder = null;
+    _ui.armedDeleteId = null;
+    _ui.resetArmed = false;
+    _render(_localLoad());
+}
+
+// Two taps: first arms, second resets everything. Disarms after 4 seconds.
+function onResetAll() {
+    if (!_ui.resetArmed) {
+        _ui.resetArmed = true;
+        setTimeout(() => {
+            if (_ui.resetArmed) {
+                _ui.resetArmed = false;
+                _render(_localLoad());
+            }
+        }, 4000);
+        _render(_localLoad());
+        return;
+    }
+    _mutate(p => p.nodes.forEach(n => setDone(n, false)));
+}
+
+// ── Callbacks passed into render ──────────────────────────────────────────────
 
 const _callbacks = {
-    // Step interactions
-    onStepCount: (stepId, itemId, dir) => _stepCount(stepId, itemId, dir),
-
-    // Item interactions
-    onEditItem: itemId => openEditItemModal(itemId, selectedProjectId),
-    onResetItem: itemId => _resetItem(itemId),
-    onTogglePinned: itemId => _togglePinned(itemId),
-    onMoveItem: (itemId, dir) => _moveItem(itemId, dir),
-    onToggleExpanded: itemId => _toggleExpanded(itemId),
-    onAttachLongPress: (el, cb) => attachLongPress(el, cb),
-
-    // Filter interactions
-    onAddItemTagFilter: tagId => _addFilter('item', tagId),
-    onRemoveItemTagFilter: tagId => _removeFilter('item', tagId),
-    onAddStepTagFilter: tagId => _addFilter('step', tagId),
-    onRemoveStepTagFilter: tagId => _removeFilter('step', tagId),
-    onTogglePillMode: () => _togglePillMode(),
-
-    // Sort / edit mode
-    onCycleSortMode: () => _cycleSortMode(),
-    onToggleEditMode: () => _toggleEditMode(),
-    onTogglePinnedOnly: () => _togglePinnedOnly(),
-
-    // Resets
-    onResetAll: () => _promptResetAll(),
-    onResetPinned: () => _promptResetPinned(),
-
-    // Briefing
-    onOpenBriefing: itemId => _openBriefing(itemId),
+    onToggleNode,
+    onCounterStep,
+    onResetNode,
+    onToggleCollapse,
+    onMoveNode,
+    onStartEdit,
+    onCancelEdit,
+    onSaveEdit,
+    onDeleteNode,
+    onStartAdd,
+    onCancelAdd,
+    onAddNode,
+    onToggleEditMode,
+    onResetAll,
+    onOpenImport: () => openImportModal(selectedProjectId),
 };
-
-// ── Step interaction handlers ─────────────────────────────────────────────────
-
-function _stepCount(stepId, itemId, dir) {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    const item = (project.items || []).find(i => i.id === itemId);
-    if (!item) return;
-    const step = (item.steps || []).find(s => s.id === stepId);
-    if (!step) return;
-
-    const session = project.session || {};
-    const stepState = session.stepState || {};
-    const current = (stepState[stepId] || {current: 0}).current;
-    const next = Math.max(0, current + dir);
-
-    stepState[stepId] = {current: next};
-    session.stepState = stepState;
-    project.session = session;
-
-    cacheSet(stored, project, CFG);
-    localSave(stored);
-    _scheduleSync(selectedProjectId);
-    _doRenderMain(_localLoad());
-}
-
-// ── Item interaction handlers ─────────────────────────────────────────────────
-
-function _resetItem(itemId) {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    const item = (project.items || []).find(i => i.id === itemId);
-    if (!item) return;
-
-    const stepState = project.session.stepState || {};
-    (item.steps || []).forEach(s => {
-        stepState[s.id] = {current: 0};
-    });
-    project.session.stepState = stepState;
-
-    cacheSet(stored, project, CFG);
-    localSave(stored);
-    _scheduleSync(selectedProjectId);
-    _doRenderMain(_localLoad());
-}
-
-async function _togglePinned(itemId) {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    const item = (project.items || []).find(i => i.id === itemId);
-    if (!item) return;
-
-    item.pinned = !item.pinned;
-    cacheSet(stored, project, CFG);
-    await saveData(stored, selectedProjectId);
-    _doRenderMain(_localLoad());
-}
-
-async function _moveItem(itemId, dir) {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    const items = [...(project.items || [])].sort((a, b) =>
-        (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-    );
-    const idx = items.findIndex(i => i.id === itemId);
-    if (idx === -1) return;
-
-    const swapIdx = idx + dir;
-    if (swapIdx < 0 || swapIdx >= items.length) return;
-
-    // Swap sortOrder values.
-    const tmpOrder = items[idx].sortOrder ?? idx;
-    items[idx].sortOrder = items[swapIdx].sortOrder ?? swapIdx;
-    items[swapIdx].sortOrder = tmpOrder;
-
-    project.items = items;
-    cacheSet(stored, project, CFG);
-    await saveData(stored, selectedProjectId);
-    _doRenderMain(_localLoad());
-}
-
-// ── Filter handlers ───────────────────────────────────────────────────────────
-
-function _addFilter(type, tagId) {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    const key = type === 'item' ? 'activeItemTags' : 'activeStepTags';
-    const arr = project.session[key] || [];
-    if (!arr.includes(tagId)) {
-        project.session[key] = [...arr, tagId];
-        cacheSet(stored, project, CFG);
-        localSave(stored);
-    }
-    _doRenderMain(_localLoad());
-}
-
-function _removeFilter(type, tagId) {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    const key = type === 'item' ? 'activeItemTags' : 'activeStepTags';
-    project.session[key] = (project.session[key] || []).filter(id => id !== tagId);
-    cacheSet(stored, project, CFG);
-    localSave(stored);
-    _doRenderMain(_localLoad());
-}
-
-function _togglePillMode() {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    project.session.pillDisplayMode =
-        project.session.pillDisplayMode === 'emoji' ? 'name' : 'emoji';
-    cacheSet(stored, project, CFG);
-    localSave(stored);
-    _doRenderMain(_localLoad());
-}
-
-// ── Sort / edit mode handlers ─────────────────────────────────────────────────
-
-async function _cycleSortMode() {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    const current = project.sortMode || 'manual';
-    const next = current === 'manual' ? 'name-asc' :
-        current === 'name-asc' ? 'name-desc' : 'manual';
-    project.sortMode = next;
-
-    // Applying a named sort rewrites sortOrder values so there is only ever
-    // one order. Manual leaves sortOrder as-is.
-    if (next === 'name-asc' || next === 'name-desc') {
-        const sorted = [...(project.items || [])].sort((a, b) =>
-            next === 'name-asc'
-                ? a.name.localeCompare(b.name)
-                : b.name.localeCompare(a.name)
-        );
-        sorted.forEach((item, idx) => {
-            item.sortOrder = idx;
-        });
-        project.items = sorted;
-    }
-
-    cacheSet(stored, project, CFG);
-    await saveData(stored, selectedProjectId);
-    _doRenderMain(_localLoad());
-}
-
-function _toggleEditMode() {
-    _editMode = !_editMode;
-    _doRenderMain(_localLoad());
-}
-
-function _toggleExpanded(itemId) {
-    if (_expandedItems.has(itemId)) {
-        _expandedItems.delete(itemId);
-    } else {
-        _expandedItems.add(itemId);
-    }
-    _doRenderMain(_localLoad());
-}
-
-async function _togglePinnedOnly() {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    const entering = !project.session.pinnedOnly;
-    project.session.pinnedOnly = entering;
-
-    if (entering) {
-        // Expand all pinned items automatically on entering focus mode.
-        (project.items || [])
-            .filter(i => i.pinned)
-            .forEach(i => _expandedItems.add(i.id));
-    } else {
-        // Clear expanded state on exit — back to default collapsed.
-        _expandedItems.clear();
-    }
-
-    cacheSet(stored, project, CFG);
-    localSave(stored);
-    _doRenderMain(_localLoad());
-}
-
-// ── Reset handlers ────────────────────────────────────────────────────────────
-
-let _resetAllPending = false;
-
-function _promptResetAll() {
-    if (_resetAllPending) {
-        _resetAllPending = false;
-        _executeResetAll();
-        return;
-    }
-    _resetAllPending = true;
-    // Auto-cancel after 4 seconds if not confirmed.
-    setTimeout(() => {
-        _resetAllPending = false;
-        _doRenderMain(_localLoad());
-    }, 4000);
-    _doRenderMain(_localLoad());
-}
-
-async function _executeResetAll() {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    project.session.stepState = {};
-    cacheSet(stored, project, CFG);
-    await saveData(stored, selectedProjectId);
-    _doRenderMain(_localLoad());
-}
-
-let _resetPinnedPending = false;
-
-function _promptResetPinned() {
-    if (_resetPinnedPending) {
-        _resetPinnedPending = false;
-        _executeResetPinned();
-        return;
-    }
-    _resetPinnedPending = true;
-    setTimeout(() => {
-        _resetPinnedPending = false;
-        _doRenderMain(_localLoad());
-    }, 4000);
-    _doRenderMain(_localLoad());
-}
-
-async function _executeResetPinned() {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    const stepState = project.session.stepState || {};
-    (project.items || [])
-        .filter(i => i.pinned)
-        .forEach(item => {
-            (item.steps || []).forEach(s => {
-                stepState[s.id] = {current: 0};
-            });
-        });
-    project.session.stepState = stepState;
-    cacheSet(stored, project, CFG);
-    await saveData(stored, selectedProjectId);
-    _doRenderMain(_localLoad());
-}
-
-// ── Briefing modal ────────────────────────────────────────────────────────────
-
-function _openBriefing(itemId) {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    const item = (project.items || []).find(i => i.id === itemId);
-    if (!item) return;
-
-    _briefingItemId = itemId;
-    renderBriefingModal(item, project, project.session || {});
-
-    const overlay = document.getElementById('briefingModal');
-    if (overlay) overlay.classList.add('open');
-}
-
-function _closeBriefing() {
-    _briefingItemId = null;
-    const overlay = document.getElementById('briefingModal');
-    if (overlay) overlay.classList.remove('open');
-}
-
-async function _toggleBriefingShowAll(showAll) {
-    const stored = _localLoad();
-    const project = stored.blobs[selectedProjectId];
-    if (!project) return;
-
-    project.session.briefingShowAll = showAll;
-    cacheSet(stored, project, CFG);
-    localSave(stored);
-
-    // Re-render briefing with new toggle state.
-    if (_briefingItemId) {
-        const item = (project.items || []).find(i => i.id === _briefingItemId);
-        if (item) renderBriefingModal(item, project, project.session);
-    }
-}
 
 // ── After-save / after-delete callbacks ──────────────────────────────────────
 
-async function _afterProjectSaved(savedId) {
+function _afterProjectSaved(savedId) {
+    const changed = selectedProjectId !== savedId;
     selectedProjectId = savedId;
     localStorage.setItem(STORAGE_SELECTED, savedId);
-    rebuildSelector(_localLoad().index, selectedProjectId);
-    _doRenderMain(_localLoad());
+    if (changed) _resetUiState();
+
+    const stored = _localLoad();
+    rebuildSelector(stored.index, selectedProjectId);
+
+    const project = stored.blobs[savedId];
+    if (changed && project && Array.isArray(project.nodes) && project.nodes.length === 0) _focusAdd = 'root';
+    _render(stored);
 }
 
 async function _afterProjectDeleted(deletedId) {
     if (selectedProjectId === deletedId) {
         selectedProjectId = null;
         localStorage.removeItem(STORAGE_SELECTED);
+        _resetUiState();
     }
     const data = await loadData();
     rebuildSelector(data.index, selectedProjectId);
-    _doRenderMain(_localLoad());
+    _render(_localLoad());
 }
 
-// ── Window globals — wired to inline HTML handlers and modal buttons ──────────
+// ── Window globals ────────────────────────────────────────────────────────────
+// Only what index.html's inline Escape handler needs.
 
-window.selectProject = e => selectProject(e.target ? e.target.value : e);
-window.openAddProjectModal = () => openAddProjectModal();
-window.openEditProjectModal = () => openEditProjectModal(selectedProjectId);
 window.closeProjectModal = () => closeProjectModal();
-window.saveProjectModal = () => saveProjectModal(_afterProjectSaved);
-window.promptDeleteProject = () => promptDeleteProject();
-window.cancelDeleteProject = () => cancelDeleteProject();
-window.confirmDeleteProject = () => confirmDeleteProject(_afterProjectDeleted);
-window.addResourceRow = () => addResourceRow();
-window.addItemTagRow = () => addItemTagRow();
-window.addStepTagRow = () => addStepTagRow();
-window.addStepRow = () => addStepRow();
-window.togglePinnedOnly = () => _togglePinnedOnly();
-window.closeBriefingModal = () => _closeBriefing();
-window.briefingShowAll = () => _toggleBriefingShowAll(true);
-window.briefingShowFiltered = () => _toggleBriefingShowAll(false);
+window.closeImportModal = () => closeImportModal();
 
-window.openAddItemModal = () => openAddItemModal(selectedProjectId);
-window.closeItemModal = () => closeItemModal();
-window.saveItemModal = () => saveItemModal(() => _doRenderMain(_localLoad()));
-window.addStepRow = () => addStepRow();
-
-// ── Wire modal button clicks ──────────────────────────────────────────────────
-// Buttons inside modals use addEventListener rather than inline onclick,
-// consistent with the no-inline-onclick-in-generated-HTML convention.
-// Static modal buttons in index.html are wired here after DOMContentLoaded.
+// ── Wire static buttons ───────────────────────────────────────────────────────
 
 function _wireModalButtons() {
-    const wire = (id, fn) => {
+    const wire = (id, event, fn) => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('click', fn);
+        if (el) el.addEventListener(event, fn);
     };
 
-    wire('projectSelect', e => selectProject(e.target.value));
-    wire('addProjectBtn', () => openAddProjectModal());
-    wire('editProjectBtn', () => openEditProjectModal(selectedProjectId));
-    wire('pmCancelBtn', () => closeProjectModal());
-    wire('pmSaveBtn', () => saveProjectModal(_afterProjectSaved));
-    wire('pmAddResourceBtn', () => addResourceRow());
-    wire('pmAddItemTagBtn', () => addItemTagRow());
-    wire('pmAddStepTagBtn', () => addStepTagRow());
-    wire('pmDeleteBtn', () => promptDeleteProject());
-    wire('pmDeleteCancelBtn', () => cancelDeleteProject());
-    wire('pmDeleteConfirmBtn', () => confirmDeleteProject(_afterProjectDeleted));
+    wire('projectSelect', 'change', e => selectProject(e.target.value));
+    wire('addProjectBtn', 'click', () => openAddProjectModal());
+    wire('editProjectBtn', 'click', () => openEditProjectModal(selectedProjectId));
 
-    wire('addItemBtn', () => openAddItemModal(selectedProjectId));
-    wire('imCancelBtn', () => closeItemModal());
-    wire('imSaveBtn', () => saveItemModal(() => _doRenderMain(_localLoad())));
-    wire('imAddStepBtn', () => addStepRow());
+    wire('pmCancelBtn', 'click', () => closeProjectModal());
+    wire('pmSaveBtn', 'click', () => saveProjectModal(_afterProjectSaved));
+    wire('pmName', 'keydown', e => {
+        if (e.key === 'Enter') saveProjectModal(_afterProjectSaved);
+    });
+    wire('pmDeleteBtn', 'click', () => promptDeleteProject());
+    wire('pmDeleteCancelBtn', 'click', () => cancelDeleteProject());
+    wire('pmDeleteConfirmBtn', 'click', () => confirmDeleteProject(_afterProjectDeleted));
 
-    // Backdrop tap closes item modal.
-    const itemOverlay = document.getElementById('itemModal');
-    if (itemOverlay) {
-        itemOverlay.addEventListener('click', e => {
-            if (e.target === itemOverlay) closeItemModal();
+    wire('impCancelBtn', 'click', () => closeImportModal());
+    wire('impSaveBtn', 'click', () => saveImportModal(() => _render(_localLoad())));
+
+    const projectOverlay = document.getElementById('projectModal');
+    if (projectOverlay) {
+        projectOverlay.addEventListener('click', e => {
+            if (e.target === projectOverlay) closeProjectModal();
+        });
+    }
+    const importOverlay = document.getElementById('importModal');
+    if (importOverlay) {
+        importOverlay.addEventListener('click', e => {
+            if (e.target === importOverlay) closeImportModal();
         });
     }
 
-    // 📌 focus mode toggle — wired via window global from filter bar button,
-    // but also support a dedicated button if present in HTML.
-    wire('pinnedOnlyBtn', () => _togglePinnedOnly());
-
-    // Briefing modal close and toggle.
-    wire('briefingCloseBtn', () => _closeBriefing());
-    wire('briefingToggleAll', () => _toggleBriefingShowAll(true));
-    wire('briefingToggleFiltered', () => _toggleBriefingShowAll(false));
-
-    // Backdrop tap closes briefing.
-    const briefingOverlay = document.getElementById('briefingModal');
-    if (briefingOverlay) {
-        briefingOverlay.addEventListener('click', e => {
-            if (e.target === briefingOverlay) _closeBriefing();
-        });
-    }
-
-    // Backdrop tap closes project modal.
-    const overlay = document.getElementById('projectModal');
-    if (overlay) {
-        overlay.addEventListener('click', e => {
-            if (e.target === overlay) closeProjectModal();
-        });
-    }
+    // Push pending changes when the tab is hidden so a closed tab doesn't lose the debounce.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') _flushSync();
+    });
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -652,20 +497,10 @@ function _wireModalButtons() {
     selectedProjectId = _restoreSelectedProject(data.index);
     rebuildSelector(data.index, selectedProjectId);
 
-    if (selectedProjectId) {
-        await loadProject(selectedProjectId);
-        // Expand pinned items by default on initial load.
-        const stored = _localLoad();
-        const project = stored.blobs[selectedProjectId];
-        if (project) {
-            (project.items || [])
-                .filter(i => i.pinned)
-                .forEach(i => _expandedItems.add(i.id));
-        }
-    }
+    if (selectedProjectId) await loadProject(selectedProjectId);
 
     _wireModalButtons();
-    _doRenderMain(_localLoad());
+    _render(_localLoad());
 
     const user = getUser();
     if (user) subscribeToProjectChanges(user.id, _onRemoteUpdate);

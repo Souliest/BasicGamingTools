@@ -11,7 +11,7 @@
 .selector-bar {
   display: flex;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   align-items: center;
 }
 
@@ -52,6 +52,11 @@ select#projectSelect:focus {
   flex-shrink: 0;
 }
 
+.btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .btn-primary {
   background: var(--accent);
   color: #000;
@@ -69,7 +74,7 @@ select#projectSelect:focus {
   color: var(--text);
 }
 
-.btn-ghost:hover {
+.btn-ghost:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -128,7 +133,6 @@ select#projectSelect:focus {
   box-sizing: border-box;
 }
 
-/* ── Edit modal ── */
 .modal-edit {
   padding: 20px;
 }
@@ -156,8 +160,6 @@ select#projectSelect:focus {
 }
 
 .form-group input[type="text"],
-.form-group input[type="number"],
-.form-group select,
 .form-group textarea {
   width: 100%;
   background: var(--input-bg);
@@ -172,7 +174,6 @@ select#projectSelect:focus {
 }
 
 .form-group input:focus,
-.form-group select:focus,
 .form-group textarea:focus {
   outline: none;
   border-color: var(--accent);
@@ -180,133 +181,21 @@ select#projectSelect:focus {
 
 .form-group textarea {
   resize: vertical;
-  min-height: 64px;
+  min-height: 140px;
+  line-height: 1.5;
 }
 
-/* ── Form section headers (Resources, Item Tags, Step Tags) ── */
-.form-section-header {
-  font-size: 0.73rem;
+.import-hint {
+  font-size: 0.75rem;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 18px 0 8px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid var(--border);
-}
-
-/* ── Definition list (resources / tags in project modal) ── */
-.def-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.def-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* Column widths — used by both resource and tag rows */
-.def-col-name {
-  flex: 1;
-  min-width: 0;
-}
-
-.def-col-emoji {
-  flex: 0 0 52px;
-  text-align: center;
-}
-
-.def-col-capacity {
-  flex: 0 0 52px;
-  text-align: center;
-}
-
-.def-col-remove {
-  flex: 0 0 28px;
-}
-
-/* Column header labels */
-.def-row-headers {
-  margin-bottom: 2px;
-}
-
-.def-col-header {
-  font-size: 0.65rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  display: block;
-}
-
-/* Input base style — applies to all def-row inputs */
-.def-row input[type="text"],
-.def-row input[type="number"] {
-  background: var(--input-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 9px;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.88rem;
-  box-sizing: border-box;
-  width: 100%;
-  transition: border-color 0.2s;
-}
-
-.def-row input[type="text"]:focus,
-.def-row input[type="number"]:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.def-col-emoji input,
-.emoji-input {
-  text-align: center;
-  font-size: 1rem;
-  padding: 6px 4px;
-}
-
-.def-col-capacity input,
-.capacity-input {
-  text-align: center;
-}
-
-.def-row-remove {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: #ff4444;
-  font-size: 0.8rem;
-  cursor: pointer;
-  padding: 4px 7px;
-  line-height: 1;
-  transition: background 0.15s;
-  flex-shrink: 0;
-}
-
-.def-row-remove:hover {
-  background: rgba(255, 68, 68, 0.1);
-}
-
-.btn-add-row {
-  font-size: 0.78rem;
-  padding: 5px 10px;
+  line-height: 1.55;
   margin-bottom: 4px;
-  opacity: 0.75;
-  border-style: dashed;
 }
 
-.btn-add-row:hover {
-  opacity: 1;
-  border-style: solid;
-  border-color: var(--accent);
+.import-hint code {
   color: var(--accent);
 }
 
-/* ── Inline modal error ── */
 .modal-error {
   font-size: 0.78rem;
   color: #ff4444;
@@ -317,7 +206,6 @@ select#projectSelect:focus {
   border-radius: 6px;
 }
 
-/* ── Modal actions ── */
 .modal-actions {
   display: flex;
   gap: 8px;
@@ -389,979 +277,391 @@ select#projectSelect:focus {
 }
 
 /* ═══════════════════════════════════════════════
-   LAYER 2 — Filter bar, tally, items, steps
+   Toolbar
    ═══════════════════════════════════════════════ */
 
-/* ── Filter bar ── */
-.clm-filter-bar {
+.clm-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
-.clm-filter-select {
-  background: var(--input-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: border-color 0.2s;
+.clm-summary {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: auto;
 }
 
-.clm-filter-select:focus {
-  outline: none;
-  border-color: var(--accent);
+.clm-summary-done {
+  color: var(--accent3);
 }
 
-.clm-sort-btn,
-.clm-edit-mode-btn,
-.clm-reset-btn {
+.clm-tool-btn {
   padding: 6px 10px;
   font-size: 0.82rem;
 }
 
-.clm-sort-btn.active,
-.clm-edit-mode-btn.active {
+.clm-tool-btn.active {
   border-color: var(--accent);
   color: var(--accent);
   box-shadow: var(--glow);
 }
 
 .clm-reset-btn {
-  margin-left: auto;
   color: var(--muted);
 }
 
-.clm-reset-btn:hover {
-  color: var(--accent2);
+.clm-reset-btn.armed {
   border-color: var(--accent2);
-}
-
-/* ── Active filter pills ── */
-.clm-active-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.clm-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--stat-bg);
-  border: 1px solid var(--accent);
-  border-radius: 20px;
-  padding: 3px 8px;
-  font-size: 0.78rem;
-  color: var(--accent);
-}
-
-.clm-pill-remove {
-  background: none;
-  border: none;
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 0.85rem;
-  padding: 0 2px;
-  line-height: 1;
-  opacity: 0.7;
-  transition: opacity 0.15s;
-}
-
-.clm-pill-remove:hover {
-  opacity: 1;
-}
-
-.clm-pill-mode-btn {
-  padding: 3px 8px;
-  font-size: 0.75rem;
-  border-radius: 20px;
-  margin-left: 2px;
-  color: var(--muted);
-}
-
-/* ── Resource tally ── */
-.clm-tally {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  background: var(--stat-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.clm-tally-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.clm-tally-label {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.8rem;
-  color: var(--text);
-  min-width: 80px;
-  flex-shrink: 0;
-}
-
-.clm-tally-count {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--accent);
-  min-width: 40px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.clm-tally-over .clm-tally-count {
   color: var(--accent2);
 }
 
-.clm-tally-bar-wrap {
-  flex: 1;
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  overflow: hidden;
+.clm-edit-banner {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--accent2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 5px;
+  margin-bottom: 10px;
+  border: 1px solid var(--accent2);
+  border-radius: 6px;
+  background: rgba(255, 107, 53, 0.07);
+  user-select: none;
 }
 
-.clm-tally-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s ease;
+.clm-empty-hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  padding: 24px 12px 14px;
 }
 
-/* ── Item list ── */
-.clm-item-list {
+.clm-empty-hint strong {
+  color: var(--accent);
+  font-weight: normal;
+}
+
+/* ═══════════════════════════════════════════════
+   Tree
+   ═══════════════════════════════════════════════ */
+
+.clm-tree {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-/* ── Item panel ── */
-.clm-item-panel {
+.clm-node {
+  display: flex;
+  flex-direction: column;
+}
+
+.clm-children {
+  margin-left: 18px;
+  margin-top: 5px;
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Row ── */
+.clm-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
+  border-radius: 8px;
   transition: border-color 0.2s;
   user-select: none;
 }
 
-.clm-item-panel:hover {
+.clm-row:hover {
   border-color: var(--muted);
 }
 
-.clm-item-complete {
-  border-color: var(--accent3);
+.clm-row.clm-done {
+  border-color: rgba(127, 255, 107, 0.35);
 }
 
-.clm-item-header {
+.clm-toggle-slot {
+  width: 16px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  justify-content: center;
 }
 
-.clm-item-expand-btn {
+.clm-toggle {
   background: none;
   border: none;
   color: var(--muted);
   font-size: 0.65rem;
   cursor: pointer;
-  padding: 2px 4px;
-  line-height: 1;
-  flex-shrink: 0;
-  transition: color 0.15s;
-}
-
-.clm-item-expand-btn:hover {
-  color: var(--accent);
-}
-
-.clm-item-complete-indicator {
-  font-size: 0.85rem;
-  color: var(--accent3);
-  min-width: 14px;
-  flex-shrink: 0;
-}
-
-.clm-item-name {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: 0.04em;
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.clm-item-header-right {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-}
-
-.clm-item-tag-chip {
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.clm-pin-indicator {
-  font-size: 0.8rem;
-}
-
-.clm-item-edit-btn,
-.clm-item-reset-btn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  cursor: pointer;
-  padding: 3px 7px;
-  transition: all 0.15s;
-  line-height: 1.2;
-}
-
-.clm-item-edit-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.clm-item-reset-btn:hover {
-  border-color: var(--accent2);
-  color: var(--accent2);
-}
-
-/* Reorder arrows (edit mode) */
-.clm-item-order-btns {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  flex-shrink: 0;
-}
-
-.clm-item-order-btn {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 0.6rem;
-  cursor: pointer;
-  padding: 1px 4px;
+  padding: 2px;
   line-height: 1;
   transition: color 0.15s;
 }
 
-.clm-item-order-btn:hover:not([disabled]) {
+.clm-toggle:hover {
   color: var(--accent);
 }
 
-.clm-item-order-btn[disabled] {
-  opacity: 0.2;
-  cursor: default;
-}
-
-/* ── Step list (inside item panel) ── */
-.clm-step-list {
-  border-top: 1px solid var(--border);
-}
-
-/* ── Step list collapse ── */
-.clm-step-list-collapsed {
-  display: none;
-}
-
-/* ── Step row ── */
-.clm-step-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px 10px 12px;
-  border-bottom: 1px solid var(--border);
-  transition: opacity 0.2s;
-}
-
-.clm-step-row:last-child {
-  border-bottom: none;
-}
-
-.clm-step-done {
-  opacity: 0.45;
-}
-
-/* ── Left column: + button and batch count ── */
-.clm-step-left {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
+/* ── Checkbox ── */
+.clm-check {
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-  min-width: 32px;
-}
-
-.clm-step-add-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  padding: 0;
+  border-radius: 7px;
   border: 2px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  font-size: 1rem;
+  background: var(--input-bg);
+  color: transparent;
+  font-size: 0.85rem;
   font-weight: bold;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.clm-check:hover {
+  border-color: var(--accent3);
+}
+
+.clm-check-on {
+  background: var(--accent3);
+  border-color: var(--accent3);
+  color: #000;
+}
+
+/* ── Name ── */
+.clm-name {
+  flex: 1 1 60px;
+  min-width: 0;
+  font-size: 0.92rem;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+
+.clm-parent .clm-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.clm-done .clm-name {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* ── Parent count ── */
+.clm-count {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
   flex-shrink: 0;
 }
 
-.clm-step-add-btn:hover {
-  border-color: var(--accent3);
+.clm-done .clm-count {
   color: var(--accent3);
 }
 
-.clm-step-add-btn-done {
-  border-color: var(--accent3);
-  background: rgba(127, 255, 107, 0.1);
-  color: var(--accent3);
+/* ── Counter controls ── */
+.clm-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
-.clm-step-add-btn-done:hover {
-  border-color: var(--accent3);
-  background: rgba(127, 255, 107, 0.18);
-}
-
-.clm-step-batch-count {
+.clm-counter-val {
   font-family: 'Orbitron', sans-serif;
-  font-size: 0.65rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--accent);
+  min-width: 44px;
   text-align: center;
-  line-height: 1;
 }
 
-/* ── Step body: middle column ── */
-.clm-step-body {
+.clm-done .clm-counter-val {
+  color: var(--accent3);
+}
+
+.clm-step-btn {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.clm-step-btn:hover:not(:disabled) {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.clm-step-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.clm-step-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.clm-step-plus {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: bold;
+}
+
+.clm-step-plus:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: var(--glow);
+}
+
+/* ── Small node buttons (reset / edit controls) ── */
+.clm-node-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 3px 8px;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.clm-node-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.clm-node-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.clm-node-btn.blue {
+  color: var(--accent);
+  border-color: var(--accent);
+  opacity: 0.8;
+}
+
+.clm-node-btn.red {
+  color: #ff4444;
+  border-color: #ff4444;
+}
+
+.clm-node-btn.red:hover:not(:disabled) {
+  background: rgba(255, 68, 68, 0.1);
+  color: #ff4444;
+  border-color: #ff4444;
+}
+
+.clm-node-btn.armed {
+  background: rgba(255, 68, 68, 0.15);
+  font-size: 0.78rem;
+}
+
+.clm-edit-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-left: auto;
+}
+
+/* ── Inline editor ── */
+.clm-editor {
+  flex-wrap: nowrap;
+  border-color: var(--accent);
+}
+
+.clm-edit-name,
+.clm-edit-target,
+.clm-add-input {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 9px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.clm-edit-name,
+.clm-add-input {
   flex: 1;
   min-width: 0;
 }
 
-.clm-step-title-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-.clm-step-title {
-  font-size: 0.92rem;
-  color: var(--text);
-  flex: 1;
-  line-height: 1.4;
-}
-
-/* ── Right column: resource badges + tags ── */
-.clm-step-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
+.clm-edit-target {
+  width: 64px;
   flex-shrink: 0;
-}
-
-.clm-step-resource-badge {
-  font-size: 0.75rem;
-  background: var(--stat-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 2px 7px;
-  color: var(--text);
-  white-space: nowrap;
-  font-family: 'Share Tech Mono', monospace;
-}
-
-.clm-step-tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 3px;
-}
-
-.clm-step-tag-chip {
-  font-size: 0.7rem;
-  background: var(--stat-bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 1px 6px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.clm-step-desc-toggle {
-  font-size: 0.75rem;
-  color: var(--muted);
-  cursor: pointer;
-  margin-top: 4px;
-  display: inline-block;
-  transition: color 0.15s;
-  user-select: none;
-}
-
-.clm-step-desc-toggle:hover {
-  color: var(--accent);
-}
-
-.clm-step-desc {
-  font-size: 0.85rem;
-  color: var(--text);
-  margin-top: 6px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  padding: 8px 10px;
-  background: var(--stat-bg);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-}
-
-/* ══════════════════════════════════════════════
-   Item modal (modal-item.js)
-   ══════════════════════════════════════════════ */
-
-/* Tag checkbox group */
-.im-tag-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.im-tag-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-}
-
-.im-tag-check input[type="checkbox"] {
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.im-tag-chip {
-  font-size: 0.82rem;
-  background: var(--stat-bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 3px 8px;
-  color: var(--text);
-  transition: border-color 0.15s;
-}
-
-.im-tag-check input:checked + .im-tag-chip {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.im-tag-check-sm .im-tag-chip {
-  font-size: 0.75rem;
-  padding: 2px 6px;
-}
-
-.im-tag-chip-sm {
-  font-size: 0.75rem;
-  padding: 2px 6px;
-}
-
-/* Resource cost row */
-.im-resource-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 7px;
-}
-
-.im-resource-label {
-  font-size: 0.85rem;
-  color: var(--text);
-  flex: 1;
-  cursor: pointer;
-}
-
-.im-resource-input {
-  width: 60px;
-  background: var(--input-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 5px 8px;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.88rem;
   text-align: center;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
 }
 
-.im-resource-input:focus {
+.clm-edit-name:focus,
+.clm-edit-target:focus,
+.clm-add-input:focus {
   outline: none;
   border-color: var(--accent);
 }
 
-.im-resource-cap {
-  font-size: 0.78rem;
-  color: var(--muted);
-  flex-shrink: 0;
-}
-
-/* Empty hint */
-.im-empty-hint {
-  font-size: 0.78rem;
-  color: var(--muted);
-  font-style: italic;
-  padding: 4px 0;
-}
-
-/* Step list in modal */
-.im-step-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.im-step-card {
-  background: var(--stat-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.im-step-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.im-step-order-btns {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  flex-shrink: 0;
-}
-
-.im-step-order-btn {
+.clm-ed-btn {
   background: none;
-  border: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   color: var(--muted);
-  font-size: 0.6rem;
+  font-size: 0.95rem;
   cursor: pointer;
-  padding: 1px 4px;
+  padding: 5px 10px;
   line-height: 1;
-  transition: color 0.15s;
-}
-
-.im-step-order-btn:hover:not([disabled]) {
-  color: var(--accent);
-}
-
-.im-step-order-btn[disabled] {
-  opacity: 0.2;
-  cursor: default;
-}
-
-.im-step-title {
-  flex: 1;
-  background: var(--input-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 9px;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.88rem;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
-}
-
-.im-step-title:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.im-step-remove {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: #ff4444;
-  font-size: 0.8rem;
-  cursor: pointer;
-  padding: 4px 7px;
-  line-height: 1;
-  transition: background 0.15s;
   flex-shrink: 0;
+  transition: all 0.15s;
 }
 
-.im-step-remove:hover {
-  background: rgba(255, 68, 68, 0.1);
-}
-
-.im-step-desc {
-  width: 100%;
-  background: var(--input-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 9px;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.85rem;
-  resize: vertical;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
-}
-
-.im-step-desc:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.im-step-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.im-step-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.im-step-counter-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.im-step-counter-label {
-  font-size: 0.72rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  flex-shrink: 0;
-}
-
-.im-step-counter-input {
-  width: 52px;
-  background: var(--input-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 7px;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.85rem;
-  text-align: center;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
-}
-
-.im-step-counter-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.im-step-counter-hint {
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-style: italic;
-}
-
-/* ═══════════════════════════════════════════════
-   LAYER 3 — Pinned section, briefing modal
-   ═══════════════════════════════════════════════ */
-
-/* ── Item section (shared by Pinned and All Items) ── */
-.clm-section {
-  margin-bottom: 16px;
-}
-
-.clm-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-  gap: 8px;
-}
-
-.clm-section-label {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.72rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  flex: 1;
-}
-
-.clm-section-pinned .clm-section-label {
-  color: var(--accent);
-}
-
-.clm-section-reset {
-  padding: 3px 9px;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
-.clm-section-reset:hover {
-  border-color: var(--accent2);
-  color: var(--accent2);
-}
-
-.clm-section-empty {
-  font-size: 0.8rem;
-  color: var(--muted);
-  font-style: italic;
-  padding: 12px 4px;
-  text-align: center;
-}
-
-/* ── Item name as link (briefing trigger) ── */
-.clm-item-name-link {
-  cursor: pointer;
-  transition: color 0.15s;
-}
-
-.clm-item-name-link:hover {
-  color: var(--accent);
-}
-
-/* ── Briefing modal ── */
-.modal-briefing {
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  max-height: 85vh;
-}
-
-.briefing-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--border);
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.briefing-title {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--accent);
-  letter-spacing: 0.05em;
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 2px 6px;
-  transition: color 0.15s;
-  flex-shrink: 0;
-}
-
-.modal-close:hover {
-  color: var(--text);
-}
-
-.briefing-toggle-wrap {
-  display: flex;
-  gap: 6px;
-  padding: 10px 20px 0;
-  flex-shrink: 0;
-  transition: opacity 0.2s;
-}
-
-.briefing-toggle-btn {
-  font-size: 0.78rem;
-  padding: 5px 12px;
-  border-radius: 20px;
-  color: var(--muted);
-}
-
-.briefing-toggle-btn.active {
+.clm-ed-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
-  box-shadow: var(--glow);
 }
 
-.briefing-body {
-  padding: 14px 20px 20px;
-  overflow-y: auto;
+/* ── Add row ── */
+.clm-add-row {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.briefing-empty {
-  font-size: 0.82rem;
-  color: var(--muted);
-  font-style: italic;
-  text-align: center;
-  padding: 20px 0;
-}
-
-.briefing-step {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.briefing-step:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.briefing-step-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 0.88rem;
-  color: var(--text);
-  font-family: 'Share Tech Mono', monospace;
-}
-
-.briefing-step-desc {
-  font-size: 0.82rem;
-  color: var(--muted);
-  line-height: 1.55;
-  white-space: pre-wrap;
-  padding: 7px 10px;
-  background: var(--stat-bg);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-}
-
-/* ── Pinned-only toggle button ── */
-.clm-pinned-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: var(--glow);
-}
-
-/* ═══════════════════════════════════════════════
-   UI PASS — filter bar, + Item row, def-row
-   columns, step resource inputs
-   ═══════════════════════════════════════════════ */
-
-/* ── Filter bar two-row layout ── */
-.clm-filter-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-bottom: 8px;
-}
-
-.clm-filter-bar,
-.clm-view-bar {
-  display: flex;
-  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
 }
 
-.clm-bar-label {
-  font-size: 0.68rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  flex-shrink: 0;
-  min-width: 48px;
-}
-
-/* ── + Item row ── */
-.add-item-row {
-  margin-bottom: 10px;
-}
-
-.btn-add-item {
-  width: 100%;
-}
-
-/* ── Tally heading ── */
-.clm-tally-heading {
-  font-size: 0.65rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 4px;
-}
-
-/* ── Step resource inputs in item modal ── */
-.im-step-resources-section,
-.im-step-tags-section {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.im-step-section-label {
-  font-size: 0.65rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-
-.im-step-resource-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.im-step-resource-label {
-  font-size: 0.85rem;
-  color: var(--text);
-  flex: 1;
-}
-
-.im-step-resource-input {
-  width: 56px;
-  background: var(--input-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 5px 8px;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.88rem;
-  text-align: center;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
-}
-
-.im-step-resource-input:focus {
-  outline: none;
-  border-color: var(--accent);
+.clm-add-input {
+  border-style: dashed;
 }

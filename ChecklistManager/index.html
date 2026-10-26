@@ -25,38 +25,19 @@
     <button class="btn btn-primary" id="addProjectBtn">+ Project</button>
   </div>
 
-  <div id="addItemRow" class="add-item-row" style="display:none">
-    <button class="btn btn-primary btn-add-item" id="addItemBtn">+ Item</button>
-  </div>
-
   <div id="mainContent"></div>
 
 </div>
 
-<!-- ── Project modal (create/edit) ── -->
+<!-- ── Project modal (create/rename/delete) ── -->
 <div class="modal-overlay" id="projectModal">
   <div class="modal modal-edit">
     <h2 id="projectModalTitle">New Project</h2>
 
     <div class="form-group">
       <label for="pmName">Project name</label>
-      <input type="text" id="pmName" placeholder="My Checklist">
+      <input type="text" id="pmName" placeholder="My Checklist" autocomplete="off">
     </div>
-
-    <!-- Resources -->
-    <div class="form-section-header">Resources</div>
-    <div id="pmResourceList" class="def-list"></div>
-    <button class="btn btn-ghost btn-add-row" id="pmAddResourceBtn">+ Resource</button>
-
-    <!-- Item tags -->
-    <div class="form-section-header">Item Tags</div>
-    <div id="pmItemTagList" class="def-list"></div>
-    <button class="btn btn-ghost btn-add-row" id="pmAddItemTagBtn">+ Item Tag</button>
-
-    <!-- Step tags -->
-    <div class="form-section-header">Step Tags</div>
-    <div id="pmStepTagList" class="def-list"></div>
-    <button class="btn btn-ghost btn-add-row" id="pmAddStepTagBtn">+ Step Tag</button>
 
     <div class="modal-error" id="pmError" style="display:none" role="alert"></div>
 
@@ -87,55 +68,27 @@
   </div>
 </div>
 
-<!-- ── Item modal (create/edit) ── -->
-<div class="modal-overlay" id="itemModal">
+<!-- ── Paste outline modal ── -->
+<div class="modal-overlay" id="importModal">
   <div class="modal modal-edit">
-    <h2 id="imTitle">New Item</h2>
+    <h2>Paste Outline</h2>
 
     <div class="form-group">
-      <label for="imName">Item name</label>
-      <input type="text" id="imName" placeholder="Checklist item">
+      <label for="impText">One item per line</label>
+      <textarea id="impText" rows="10" spellcheck="false"
+                placeholder="Pancakes&#10;  Flour x2&#10;  Eggs x3&#10;  Milk"></textarea>
     </div>
+    <p class="import-hint">
+      Indent to nest (tabs or spaces). A trailing <code>x3</code> makes a counter.
+      Markdown bullets and <code>[ ]</code> / <code>[x]</code> boxes are accepted.
+    </p>
 
-    <!-- Item tags -->
-    <div class="form-section-header">Item Tags</div>
-    <div id="imItemTagsGroup" class="im-tag-group"></div>
-
-    <!-- Steps -->
-    <div class="form-section-header">Steps</div>
-    <div id="imStepList" class="im-step-list"></div>
-    <button class="btn btn-ghost btn-add-row" id="imAddStepBtn">+ Step</button>
-
-    <div class="modal-error" id="imError" style="display:none" role="alert"></div>
+    <div class="modal-error" id="impError" style="display:none" role="alert"></div>
 
     <div class="modal-actions">
-      <button class="btn btn-ghost" id="imCancelBtn">Cancel</button>
-      <button class="btn btn-primary" id="imSaveBtn">Save</button>
+      <button class="btn btn-ghost" id="impCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="impSaveBtn">Add</button>
     </div>
-
-  </div>
-</div>
-
-<!-- ── Briefing modal ── -->
-<div class="modal-overlay" id="briefingModal">
-  <div class="modal modal-briefing">
-    <div class="briefing-header">
-      <h2 class="briefing-title" id="briefingTitle"></h2>
-      <button class="modal-close" id="briefingCloseBtn"
-              aria-label="Close briefing">✕
-      </button>
-    </div>
-
-    <div class="briefing-toggle-wrap" id="briefingToggleWrap">
-      <button class="btn btn-ghost briefing-toggle-btn active"
-              id="briefingToggleAll">All Steps
-      </button>
-      <button class="btn btn-ghost briefing-toggle-btn"
-              id="briefingToggleFiltered">Filtered
-      </button>
-    </div>
-
-    <div class="briefing-body" id="briefingBody"></div>
   </div>
 </div>
 
@@ -147,10 +100,9 @@
 
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
-            // modal close handlers are wired in main.js
+            // modal close handlers are assigned in main.js
             window.closeProjectModal && window.closeProjectModal();
-            window.closeItemModal && window.closeItemModal();
-            window.closeBriefingModal && window.closeBriefingModal();
+            window.closeImportModal && window.closeImportModal();
         }
     });
 </script>

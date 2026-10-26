@@ -7,7 +7,7 @@ const TOOLS = [
     {
         name: 'Checklist Manager',
         path: './ChecklistManager/index.html',
-        description: 'Manage resettable checklists with resource tracking and tag-based filtering.'
+        description: 'Hierarchical checklists with counters. Tick items off, or count them up to a target.'
     },
     {
         name: 'Level Goal Tracker',

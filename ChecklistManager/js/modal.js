@@ -1,5 +1,5 @@
 // ChecklistManager/js/modal.js
-// Barrel file — re-exports from modal-project.js and modal-item.js.
+// Barrel file — re-exports from modal-project.js and modal-import.js.
 // No logic lives here. Add business logic to the appropriate modal file.
 
 export {
@@ -10,15 +10,10 @@ export {
     promptDeleteProject,
     cancelDeleteProject,
     confirmDeleteProject,
-    addResourceRow,
-    addItemTagRow,
-    addStepTagRow,
 } from './modal-project.js';
 
 export {
-    openAddItemModal,
-    openEditItemModal,
-    closeItemModal,
-    saveItemModal,
-    addStepRow,
-} from './modal-item.js';
+    openImportModal,
+    closeImportModal,
+    saveImportModal,
+} from './modal-import.js';

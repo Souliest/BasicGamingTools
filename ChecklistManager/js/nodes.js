@@ -3,8 +3,8 @@
 // No DOM, no localStorage.
 //
 // Node shapes:
-//   leaf    { id, name, target, value }    ticked iff value >= target (target 1 = plain checkbox)
-//   parent  { id, name, children: [...] }  ticked iff every child is ticked; stores no tick state
+//   leaf    { id, name, desc?, target, value }    ticked iff value >= target (target 1 = plain checkbox)
+//   parent  { id, name, desc?, children: [...] }  ticked iff every child is ticked; stores no tick state
 
 const MAX_TARGET = 99999;
 
@@ -16,11 +16,12 @@ export function clampTarget(raw) {
     return Math.min(MAX_TARGET, n);
 }
 
-export function makeNode(name, target = 1, done = false) {
+export function makeNode(name, target = 1, done = false, desc = '') {
     const t = clampTarget(target);
-    return {id: crypto.randomUUID(), name, target: t, value: done ? t : 0};
+    const node = {id: crypto.randomUUID(), name, target: t, value: done ? t : 0};
+    if (desc) node.desc = desc;
+    return node;
 }
-
 export function isLeaf(node) {
     return !node.children || node.children.length === 0;
 }
@@ -108,22 +109,41 @@ export function attachChild(parent, child) {
 }
 
 // ── Parsing ────────────────────────────────────────────────────────────────
-// Accepts "Eggs", "Eggs x3", "- Eggs x3", "- [ ] Eggs", "- [x] Eggs".
+// Accepts "Eggs", "Eggs x3", "Pool — Win", "Pool — Win x3", "- Eggs x3",
+// "- [ ] Eggs", "- [x] Eggs". The subtitle follows the first em-dash; a counter
+// suffix goes last (a counter right after the title, "Pool x3 — Win", is tolerated).
 
 const LINE_RE = /^(?:[-*+•]\s+)?(?:\[([ xX])\]\s+)?(.*)$/;
 const COUNT_RE = /^(.*\S)\s+[xX]\s?(\d+)$/;
 
 export function parseLine(raw) {
     const m = LINE_RE.exec(String(raw).trim());
-    let name = m ? m[2].trim() : '';
+    let text = m ? m[2].trim() : '';
     const done = !!m && (m[1] === 'x' || m[1] === 'X');
     let target = 1;
-    const c = COUNT_RE.exec(name);
+
+    const c = COUNT_RE.exec(text);
     if (c) {
-        name = c[1].trim();
+        text = c[1].trim();
         target = clampTarget(c[2]);
     }
-    return {name, target, done};
+
+    let name = text;
+    let desc = '';
+    const dash = text.indexOf('—');
+    if (dash !== -1) {
+        name = text.slice(0, dash).trim();
+        desc = text.slice(dash + 1).trim();
+        if (!c) {
+            const c2 = COUNT_RE.exec(name);
+            if (c2) {
+                name = c2[1].trim();
+                target = clampTarget(c2[2]);
+            }
+        }
+    }
+
+    return {name, desc, target, done};
 }
 
 // Indented outline → node tree. Nesting follows relative indentation, so any
@@ -134,10 +154,10 @@ export function parseOutline(text) {
     for (const line of String(text).split(/\r?\n/)) {
         if (!line.trim()) continue;
         const indent = line.match(/^[ \t]*/)[0].replace(/\t/g, '    ').length;
-        const {name, target, done} = parseLine(line);
+        const {name, desc, target, done} = parseLine(line);
         if (!name) continue;
         while (stack.length > 1 && stack[stack.length - 1].indent >= indent) stack.pop();
-        const node = makeNode(name, target, done);
+        const node = makeNode(name, target, done, desc);
         const parent = stack[stack.length - 1].node;
         if (parent) attachChild(parent, node);
         else roots.push(node);

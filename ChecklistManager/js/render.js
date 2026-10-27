@@ -226,7 +226,10 @@ function _renderRow(node, ui, cb, pos) {
         <button class="clm-check${done ? ' clm-check-on' : ''}" data-action="tick"
                 role="checkbox" aria-checked="${done}"
                 aria-label="${name}">${done ? '✔' : ''}</button>
-        <span class="clm-name" data-action="name">${name}</span>
+                <div class="clm-text" data-action="name">
+            <span class="clm-name">${name}</span>
+            ${node.desc ? `<span class="clm-desc">${escHtml(node.desc)}</span>` : ''}
+        </div>
         ${tailHtml}
         ${controlsHtml}
     `;
@@ -271,15 +274,18 @@ function _renderEditor(node, cb) {
         ${leaf ? `<input type="number" class="clm-edit-target" value="${targetOf(node)}"
                min="1" max="99999" aria-label="Target count"
                title="Target count (1 = plain checkbox)">` : ''}
-        <button class="clm-ed-btn" data-action="save" aria-label="Save">✔</button>
+                <button class="clm-ed-btn" data-action="save" aria-label="Save">✔</button>
         <button class="clm-ed-btn" data-action="cancel" aria-label="Cancel">✕</button>
+        <input type="text" class="clm-edit-desc" value="${escHtml(node.desc || '')}"
+               maxlength="240" placeholder="Subtitle (optional)" aria-label="Subtitle" autocomplete="off">
     `;
 
     const nameIn = row.querySelector('.clm-edit-name');
     const targetIn = row.querySelector('.clm-edit-target');
-    const save = () => cb.onSaveEdit(node.id, nameIn.value, targetIn ? targetIn.value : null);
+    const descIn = row.querySelector('.clm-edit-desc');
+    const save = () => cb.onSaveEdit(node.id, nameIn.value, targetIn ? targetIn.value : null, descIn.value);
 
-    [nameIn, targetIn].forEach(input => {
+    [nameIn, targetIn, descIn].forEach(input => {
         if (!input) return;
         input.addEventListener('keydown', e => {
             if (e.key === 'Enter') {
@@ -302,7 +308,7 @@ function _renderAddField(key, cb) {
     const row = _el('div', 'clm-add-row');
     row.innerHTML = `
         <input type="text" class="clm-add-input" data-add-for="${escHtml(key)}"
-               placeholder="Add item…  (e.g. Eggs x3)" maxlength="120"
+               placeholder="Add item…  (Title — note x3)" maxlength="240"
                aria-label="Add item" autocomplete="off">
         <button class="clm-ed-btn" data-action="add-submit" aria-label="Add">+</button>
     `;

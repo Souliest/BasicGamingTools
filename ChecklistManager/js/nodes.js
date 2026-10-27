@@ -115,8 +115,8 @@ const COUNT_RE = /^(.*\S)\s+[xX]\s?(\d+)$/;
 
 export function parseLine(raw) {
     const m = LINE_RE.exec(String(raw).trim());
-    let name = m ? m[3].trim() : '';
-    const done = !!m && (m[2] === 'x' || m[2] === 'X');
+    let name = m ? m[2].trim() : '';
+    const done = !!m && (m[1] === 'x' || m[1] === 'X');
     let target = 1;
     const c = COUNT_RE.exec(name);
     if (c) {

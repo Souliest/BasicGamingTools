@@ -458,9 +458,7 @@ select#projectSelect:focus {
 .clm-name {
   font-size: 0.92rem;
   color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   transition: color 0.15s;
 }
 
@@ -695,4 +693,38 @@ select#projectSelect:focus {
 .clm-edit-desc:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* ── Narrow screens: claw back horizontal space ── */
+@media (max-width: 480px) {
+  .container {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .clm-children {
+    margin-left: 6px;
+    padding-left: 8px;
+  }
+
+  .clm-row {
+    gap: 6px;
+    padding: 7px 8px;
+  }
+
+  .clm-toggle-slot {
+    width: 14px;
+  }
+
+  .clm-counter {
+    gap: 4px;
+  }
+
+  .clm-step-btn {
+    width: 28px;
+  }
+
+  .clm-counter-val {
+    min-width: 38px;
+  }
 }

@@ -286,14 +286,17 @@ function onCancelEdit() {
     _render(_localLoad());
 }
 
-function onSaveEdit(id, rawName, rawTarget) {
+function onSaveEdit(id, rawName, rawTarget, rawDesc) {
     const name = String(rawName).trim();
+    const desc = String(rawDesc || '').trim();
     if (!name) return;   // stay in the editor until there is a name
     _ui.editingId = null;
     _mutate(p => {
         const n = findNode(p.nodes, id);
         if (!n) return;
         n.name = name;
+        if (desc) n.desc = desc;
+        else delete n.desc;
         if (isLeaf(n) && rawTarget !== null) {
             const t = clampTarget(rawTarget);
             n.target = t;
@@ -343,11 +346,11 @@ function onCancelAdd() {
 }
 
 function onAddNode(parentId, text) {
-    const {name, target, done} = parseLine(text);
+    const {name, desc, target, done} = parseLine(text);
     if (!name) return;
     _focusAdd = parentId || 'root';
     _mutate(p => {
-        const node = makeNode(name, target, done);
+        const node = makeNode(name, target, done, desc);
         if (parentId) {
             const parent = findNode(p.nodes, parentId);
             if (!parent) return;

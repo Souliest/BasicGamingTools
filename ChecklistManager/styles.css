@@ -445,17 +445,29 @@ select#projectSelect:focus {
   color: #000;
 }
 
-/* ── Name ── */
-.clm-name {
+/* ── Name + subtitle ── */
+.clm-text {
   flex: 1 1 60px;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.clm-name {
   font-size: 0.92rem;
   color: var(--text);
-  cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color 0.15s;
+}
+
+.clm-desc {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted);
 }
 
 .clm-parent .clm-name {
@@ -600,7 +612,7 @@ select#projectSelect:focus {
 
 /* ── Inline editor ── */
 .clm-editor {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   border-color: var(--accent);
 }
 
@@ -664,4 +676,23 @@ select#projectSelect:focus {
 
 .clm-add-input {
   border-style: dashed;
+}
+
+.clm-edit-desc {
+  flex: 1 1 100%;
+  min-width: 0;
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.clm-edit-desc:focus {
+  outline: none;
+  border-color: var(--accent);
 }

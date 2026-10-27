@@ -2,10 +2,10 @@
 // HTML builders for the checklist tree, toolbar, and selector helpers.
 // Receives data and UI state as parameters — no loadData() calls inside this module.
 //
-// ui: { editMode, collapsed:Set, editingId, addingUnder, armedDeleteId, resetArmed }
+// ui: { editMode, overrides:{[nodeId]:boolean}, editingId, addingUnder, armedDeleteId, resetArmed }
 
 import {escHtml} from '../../common/utils.js';
-import {isLeaf, isDone, childCounts, targetOf, currentOf} from './nodes.js';
+import {isLeaf, isDone, isExpanded, childCounts, targetOf, currentOf} from './nodes.js';
 
 // ── Selector bar helpers ──────────────────────────────────────────────────────
 
@@ -99,7 +99,7 @@ export function renderMain(selectedProjectId, stored, ui, callbacks) {
 
     const tree = _el('div', 'clm-tree');
     nodes.forEach((n, i) => {
-        tree.appendChild(_renderNode(n, ui, callbacks, {first: i === 0, last: i === nodes.length - 1}));
+        tree.appendChild(_renderNode(n, ui, callbacks, {first: i === 0, last: i === nodes.length - 1}, 0));
     });
     if (adding) tree.appendChild(_renderAddField('root', callbacks));
     content.appendChild(tree);
@@ -148,22 +148,24 @@ function _renderToolbar(nodes, ui, cb, adding) {
 
 // ── Node ──────────────────────────────────────────────────────────────────────
 
-function _renderNode(node, ui, cb, pos) {
+function _renderNode(node, ui, cb, pos, depth) {
     const wrap = _el('div', 'clm-node');
     wrap.dataset.id = node.id;
 
+    const expanded = isExpanded(node, depth, ui.overrides);
+
     wrap.appendChild(
-        ui.editingId === node.id ? _renderEditor(node, cb) : _renderRow(node, ui, cb, pos)
+        ui.editingId === node.id ? _renderEditor(node, cb) : _renderRow(node, ui, cb, pos, expanded)
     );
 
     const leaf = isLeaf(node);
     const showAdd = ui.addingUnder === node.id;
 
-    if ((!leaf && !ui.collapsed.has(node.id)) || showAdd) {
+    if ((!leaf && expanded) || showAdd) {
         const kids = _el('div', 'clm-children');
         const children = node.children || [];
         children.forEach((c, i) => {
-            kids.appendChild(_renderNode(c, ui, cb, {first: i === 0, last: i === children.length - 1}));
+            kids.appendChild(_renderNode(c, ui, cb, {first: i === 0, last: i === children.length - 1}, depth + 1));
         });
         if (showAdd) kids.appendChild(_renderAddField(node.id, cb));
         wrap.appendChild(kids);
@@ -172,12 +174,12 @@ function _renderNode(node, ui, cb, pos) {
     return wrap;
 }
 
-function _renderRow(node, ui, cb, pos) {
+function _renderRow(node, ui, cb, pos, expanded) {
     const leaf = isLeaf(node);
     const done = isDone(node);
     const target = targetOf(node);
     const counter = leaf && target > 1;
-    const collapsed = ui.collapsed.has(node.id);
+    const collapsed = !expanded;
     const armed = ui.armedDeleteId === node.id;
     const name = escHtml(node.name);
 

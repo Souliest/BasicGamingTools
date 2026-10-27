@@ -108,6 +108,59 @@ export function attachChild(parent, child) {
     parent.children.push(child);
 }
 
+// ── Expand / collapse ──────────────────────────────────────────────────────
+// Per-node overrides: { [nodeId]: boolean }. Without an override, root nodes
+// (depth 0) are expanded and everything deeper is collapsed. Collapsing a node
+// collapses all its descendants too. Overrides equal to the default are removed
+// rather than stored, so the map stays small.
+
+export function findWithDepth(nodes, id, depth = 0) {
+    for (const n of nodes) {
+        if (n.id === id) return {node: n, depth};
+        if (n.children) {
+            const found = findWithDepth(n.children, id, depth + 1);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
+export function collectIds(nodes, out = []) {
+    for (const n of nodes) {
+        out.push(n.id);
+        if (n.children) collectIds(n.children, out);
+    }
+    return out;
+}
+
+function _defaultExpanded(depth) {
+    return depth === 0;
+}
+
+export function isExpanded(node, depth, overrides) {
+    const o = overrides[node.id];
+    return o === undefined ? _defaultExpanded(depth) : o;
+}
+
+function _applyOverride(overrides, id, depth, expanded) {
+    if (expanded === _defaultExpanded(depth)) delete overrides[id];
+    else overrides[id] = expanded;
+}
+
+function _cascadeCollapse(children, depth, overrides) {
+    for (const c of children) {
+        _applyOverride(overrides, c.id, depth, false);
+        if (c.children) _cascadeCollapse(c.children, depth + 1, overrides);
+    }
+}
+
+export function setExpanded(nodes, id, expanded, overrides) {
+    const found = findWithDepth(nodes, id);
+    if (!found) return;
+    _applyOverride(overrides, id, found.depth, expanded);
+    if (!expanded) _cascadeCollapse(found.node.children || [], found.depth + 1, overrides);
+}
+
 // ── Parsing ────────────────────────────────────────────────────────────────
 // Accepts "Eggs", "Eggs x3", "Pool — Win", "Pool — Win x3", "- Eggs x3",
 // "- [ ] Eggs", "- [x] Eggs". The subtitle follows the first em-dash; a counter

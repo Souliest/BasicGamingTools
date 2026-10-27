@@ -24,6 +24,7 @@ import {createRealtimeSubscription} from '../../common/realtime.js';
 
 export const STORAGE_KEY = TOOL_CONFIG.checklistManager.storageKey;
 export const STORAGE_SELECTED = 'bgt:clm:selected-project';
+export const STORAGE_TREE_STATE = 'bgt:clm:tree-state';
 
 const CFG = TOOL_CONFIG.checklistManager;
 const TABLE = 'bgt_clm_projects';
@@ -40,6 +41,34 @@ const _localLoad = () => localLoad(STORAGE_KEY);
 
 export function localSave(stored) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+}
+
+// ── Tree state (per device, never synced) ─────────────────────────────────────
+// Expand/collapse overrides: { [projectId]: { [nodeId]: boolean } }.
+// Kept out of the project blob so toggling a branch never triggers a Supabase write.
+
+function _loadAllTreeState() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(STORAGE_TREE_STATE));
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+export function loadTreeState(projectId) {
+    return _loadAllTreeState()[projectId] || {};
+}
+
+export function saveTreeState(projectId, overrides) {
+    const all = _loadAllTreeState();
+    if (Object.keys(overrides).length === 0) delete all[projectId];
+    else all[projectId] = overrides;
+    try {
+        localStorage.setItem(STORAGE_TREE_STATE, JSON.stringify(all));
+    } catch {
+        // storage unavailable — expand state simply won't persist
+    }
 }
 
 // ── loadData ──────────────────────────────────────────────────────────────────
@@ -265,6 +294,7 @@ export async function deleteProject(projectId) {
     const stored = _localLoad();
     cacheDelete(stored, projectId);
     localSave(stored);
+    saveTreeState(projectId, {});
 
     const user = getUser();
     if (!user) return;

@@ -7,6 +7,7 @@
 
 import {
     loadData, loadProject, saveData, localSave, resolveCollision,
+    loadTreeState, saveTreeState,
     STORAGE_KEY, STORAGE_SELECTED,
     subscribeToProjectChanges, unsubscribeFromProjectChanges,
 } from './storage.js';
@@ -24,6 +25,7 @@ import {
 import {
     findNode, removeNode, moveNode, attachChild, makeNode, parseLine, clampTarget,
     isLeaf, isDone, setDone, stepLeaf, convertLegacyProject,
+    collectIds, findWithDepth, isExpanded, setExpanded,
 } from './nodes.js';
 import {initAuth, showCollisionModal} from '../../common/auth-ui.js';
 import {supabase} from '../../common/supabase.js';
@@ -40,7 +42,7 @@ let _focusAdd = null;   // add-field key to focus after the next render
 
 const _ui = {
     editMode: false,
-    collapsed: new Set(),
+    overrides: {},
     editingId: null,
     addingUnder: null,
     armedDeleteId: null,
@@ -98,11 +100,25 @@ function _render(stored) {
 
 function _resetUiState() {
     _ui.editMode = false;
-    _ui.collapsed.clear();
+    _ui.overrides = selectedProjectId ? loadTreeState(selectedProjectId) : {};
     _ui.editingId = null;
     _ui.addingUnder = null;
     _ui.armedDeleteId = null;
     _ui.resetArmed = false;
+}
+
+// Persists expand/collapse overrides per device (never in the synced blob),
+// dropping entries for nodes that no longer exist.
+function _persistOverrides() {
+    if (!selectedProjectId) return;
+    const project = _localLoad().blobs[selectedProjectId];
+    if (project && Array.isArray(project.nodes)) {
+        const live = new Set(collectIds(project.nodes));
+        Object.keys(_ui.overrides).forEach(id => {
+            if (!live.has(id)) delete _ui.overrides[id];
+        });
+    }
+    saveTreeState(selectedProjectId, _ui.overrides);
 }
 
 // Applies a change to the selected project, persists locally, re-renders, schedules sync.
@@ -266,9 +282,15 @@ function onResetNode(id) {
 }
 
 function onToggleCollapse(id) {
-    if (_ui.collapsed.has(id)) _ui.collapsed.delete(id);
-    else _ui.collapsed.add(id);
-    _render(_localLoad());
+    const stored = _localLoad();
+    const project = selectedProjectId ? stored.blobs[selectedProjectId] : null;
+    if (!project || !Array.isArray(project.nodes)) return;
+    const found = findWithDepth(project.nodes, id);
+    if (!found) return;
+    const open = isExpanded(found.node, found.depth, _ui.overrides);
+    setExpanded(project.nodes, id, !open, _ui.overrides);
+    _persistOverrides();
+    _render(stored);
 }
 
 function onMoveNode(id, dir) {
@@ -333,11 +355,16 @@ function onDeleteNode(id) {
 function onStartAdd(id) {
     _ui.addingUnder = _ui.addingUnder === id ? null : id;
     _ui.armedDeleteId = null;
+    const stored = _localLoad();
     if (_ui.addingUnder) {
-        _ui.collapsed.delete(id);
+        const project = selectedProjectId ? stored.blobs[selectedProjectId] : null;
+        if (project && Array.isArray(project.nodes)) {
+            setExpanded(project.nodes, id, true, _ui.overrides);
+            _persistOverrides();
+        }
         _focusAdd = id;
     }
-    _render(_localLoad());
+    _render(stored);
 }
 
 function onCancelAdd() {
@@ -355,11 +382,12 @@ function onAddNode(parentId, text) {
             const parent = findNode(p.nodes, parentId);
             if (!parent) return;
             attachChild(parent, node);
-            _ui.collapsed.delete(parentId);
+            setExpanded(p.nodes, parentId, true, _ui.overrides);
         } else {
             p.nodes.push(node);
         }
     });
+    _persistOverrides();
 }
 
 function onToggleEditMode() {
@@ -501,6 +529,7 @@ function _wireModalButtons() {
     rebuildSelector(data.index, selectedProjectId);
 
     if (selectedProjectId) await loadProject(selectedProjectId);
+    _resetUiState();
 
     _wireModalButtons();
     _render(_localLoad());

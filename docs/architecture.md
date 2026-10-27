@@ -461,27 +461,32 @@ worker side. Spoofing it has no security consequence.
 
 ### ChecklistManager
 
-- Hybrid storage with debounced Supabase sync — see `docs/storage.md`.
-- Two tag types: item tags (filter whole items) and step tags (filter steps within items). Stored as
-  separate arrays (`itemTags`, `stepTags`) on the project blob.
-- Resources are defined at the project level and consumed at the step level. Each step carries a
-  `resourceCosts: { [resourceId]: number }` map. The resource tally sums `cost × step.current` across
-  all pinned items only.
-- Step execution is open-ended — `step.current` increments without a ceiling. `current >= 1` means done;
-  `current > 1` means multiple executions (batches). No `counterTarget` field exists on steps.
-- `session` lives inside the project blob — single upsert, no orphaned session keys. Session state
-  (step ticks) writes to localStorage immediately and syncs to Supabase via a 2-second debounce, same
-  pattern as TrophyHunter.
-- `_expandedItems` and `_editMode` are UI-only state in `main.js`, injected into `_doRenderMain` as a
-  session overlay so `render.js` can read them without them being persisted or synced.
-- Pinned items mirror to the top section and remain in All Items — unlike TrophyHunter where pinned
-  items move out of their natural position.
-- 📌 focus mode hides the All Items section entirely. ↺ Reset All remains visible and functional in
-  focus mode.
-- `modal-project.js` handles `_reconcileDeletedResources` (loops over `step.resourceCosts`) and
-  `_reconcileDeletedTags` (cleans orphaned tag IDs from items and steps) on every project save.
-- `modal-item.js` handles step reordering via ▲▼ in the step editor; drag-to-reorder deferred.
-- `modal.js` is a barrel re-exporting from `modal-project.js` and `modal-item.js`.
+- Hybrid storage with debounced Supabase sync — see `docs/storage.md`. Tick changes and structural edits both write to
+  localStorage immediately and schedule a Supabase write 2 seconds after the last change (`_scheduleSync`); the debounce is
+  flushed on project switch and when the tab is hidden.
+- Project blob shape: `{ id, name, nodes, last_modified }`. A leaf is `{ id, name, desc?, target, value }` and is ticked
+  iff `value >= target` (target 1 renders as a plain checkbox). A parent is `{ id, name, desc?, children }` and stores no
+  tick state: it is ticked iff every child is ticked, and shows `done/total` of its direct children.
+- `nodes.js` is a pure leaf: tree lookup and mutation, tick derivation, `parseLine`/`parseOutline`, the legacy
+  conversion, and the expand-state helpers (`isExpanded`, `setExpanded`).
+- `parseLine` is shared by the add field and the paste-outline modal. Syntax: optional markdown bullet/`[ ]` box,
+  title, optional `— subtitle` (first em-dash only), optional trailing `x<N>` counter suffix.
+- `render.js` receives data plus a `ui` object (`editMode`, `overrides`, `editingId`, `addingUnder`, `armedDeleteId`,
+  `resetArmed`) and a callbacks object; it owns no state. Rows are built with `data-action` attributes and
+  `addEventListener`.
+- `main.js` funnels every tree change through `_mutate(fn)`: apply, `cacheSet`, `localSave`, schedule sync, re-render.
+  `_ui` is UI-only and never persisted, except `overrides`.
+- Expand/collapse: `_ui.overrides` is a per-node override map. Defaults depend on depth (root expanded, deeper
+  collapsed); overrides equal to the default are removed rather than stored. Collapsing a node collapses all its
+  descendants. The map is persisted per device by `loadTreeState`/`saveTreeState` in `storage.js` under
+  `bgt:clm:tree-state`, outside the synced blob, and pruned of deleted node IDs on each save.
+- Legacy projects (`items`/`steps` shape) are converted lazily by `_ensureNodes` in `main.js` the first time they are
+  rendered. The conversion is lossy (descriptions, tags, resources, batch counts are dropped) and then syncs normally.
+- Remote Realtime updates for the open project are ignored while a local debounce is pending or an inline edit is open.
+- `modal-project.js` handles create/rename/delete; `modal-import.js` handles the paste-outline modal; `modal.js` is a
+  barrel re-exporting both.
+- Destructive actions are armed with a second tap and disarm after 4 seconds: Reset all, and Delete on a node that has
+  children. Deleting a leaf is immediate.
 
 ### TrophyHunter
 
@@ -545,25 +550,27 @@ See `TrophySummary/README.md` for user-facing documentation.
 
 ## localStorage Keys
 
-| Key                                     | Tool             | Contents                                                               |
-|-----------------------------------------|------------------|------------------------------------------------------------------------|
-| `bgt:theme`                             | global           | `'light'` or `'dark'` (absent = dark)                                  |
-| `bgt:auth:nudge-seen`                   | global           | `'1'` once the sign-in nudge is dismissed                              |
-| `bgt:xp-tracker:gains`                  | XpTracker        | JSON array of `{ xp, ts }` objects                                     |
-| `bgt:xp-tracker:start`                  | XpTracker        | Session start timestamp                                                |
-| `bgt:clm:v2`                            | ChecklistManager | `{ version, index, blobs, lruOrder }`                                  |
-| `bgt:clm:selected-project`              | ChecklistManager | Selected project UUID                                                  |
-| `bgt:level-goal-tracker:v2`             | LevelGoalTracker | `{ version, index, blobs, lruOrder }`                                  || `bgt:level-goal-tracker:selected-game`  | LevelGoalTracker | Selected game UUID                        |
-| `bgt:thing-counter:v2`                  | ThingCounter     | `{ version, index, blobs, lruOrder }`                                  |
-| `bgt:thing-counter:selected-game`       | ThingCounter     | Selected game UUID                                                     |
-| `bgt:thing-counter:quick-counter-val`   | ThingCounter     | Quick Counter current value                                            |
-| `bgt:thing-counter:quick-counter-step`  | ThingCounter     | Quick Counter step size                                                |
-| `bgt:thing-counter:quick-counter-color` | ThingCounter     | Quick Counter accent color (hex string)                                |
-| `bgt:trophy-hunter:v2`                  | TrophyHunter     | `{ version, index, blobs, lruOrder }`                                  |
-| `bgt:trophy-hunter:selected-game`       | TrophyHunter     | Selected game UUID                                                     |
-| `bgt:trophy-hunter:catalog-cache`       | TrophyHunter     | LRU cache of up to 3 trophy list blobs                                 |
-| `bgt:trophy-summary:v2`                 | TrophySummary    | `{ version, profile }` — full profile blob or null                     |
-| `bgt:trophy-summary:rate-limits`        | TrophySummary    | Rate limit expiry timestamps keyed by scope (`'global'` or `npCommId`) |
+| Key                                     | Tool             | Contents                                                                                     |
+|-----------------------------------------|------------------|----------------------------------------------------------------------------------------------|
+| `bgt:theme`                             | global           | `'light'` or `'dark'` (absent = dark)                                                        |
+| `bgt:auth:nudge-seen`                   | global           | `'1'` once the sign-in nudge is dismissed                                                    |
+| `bgt:xp-tracker:gains`                  | XpTracker        | JSON array of `{ xp, ts }` objects                                                           |
+| `bgt:xp-tracker:start`                  | XpTracker        | Session start timestamp                                                                      |
+| `bgt:clm:v2`                            | ChecklistManager | `{ version, index, blobs, lruOrder }`                                                        |
+| `bgt:clm:selected-project`              | ChecklistManager | Selected project UUID                                                                        |
+| `bgt:clm:tree-state`                    | ChecklistManager | `{ [projectId]: { [nodeId]: boolean } }` expand/collapse overrides; per device, never synced |
+| `bgt:level-goal-tracker:v2`             | LevelGoalTracker | `{ version, index, blobs, lruOrder }`                                                        |
+| `bgt:level-goal-tracker:selected-game`  | LevelGoalTracker | Selected game UUID                                                                           |
+| `bgt:thing-counter:v2`                  | ThingCounter     | `{ version, index, blobs, lruOrder }`                                                        |
+| `bgt:thing-counter:selected-game`       | ThingCounter     | Selected game UUID                                                                           |
+| `bgt:thing-counter:quick-counter-val`   | ThingCounter     | Quick Counter current value                                                                  |
+| `bgt:thing-counter:quick-counter-step`  | ThingCounter     | Quick Counter step size                                                                      |
+| `bgt:thing-counter:quick-counter-color` | ThingCounter     | Quick Counter accent color (hex string)                                                      |
+| `bgt:trophy-hunter:v2`                  | TrophyHunter     | `{ version, index, blobs, lruOrder }`                                                        |
+| `bgt:trophy-hunter:selected-game`       | TrophyHunter     | Selected game UUID                                                                           |
+| `bgt:trophy-hunter:catalog-cache`       | TrophyHunter     | LRU cache of up to 3 trophy list blobs                                                       |
+| `bgt:trophy-summary:v2`                 | TrophySummary    | `{ version, profile }` — full profile blob or null                                           |
+| `bgt:trophy-summary:rate-limits`        | TrophySummary    | Rate limit expiry timestamps keyed by scope (`'global'` or `npCommId`)                       |
 
 **Rules:** use named constants in `storage.js`, never inline string literals elsewhere.
 
@@ -688,27 +695,29 @@ See `TrophySummary/README.md` for user-facing documentation.
   remote ID set on every `loadData()` catches missed events at no extra query cost — the lightweight
   select that already runs for the selector provides the remote ID set.
 - **Stale-delete cleanup in `loadData()` (LGT, TC)** — Realtime handles live deletes...
-- **ChecklistManager: two tag types** — item tags and step tags serve fundamentally different filtering
-  purposes (hide whole items vs hide steps within items). A single tag list with a type flag was
-  considered but two separate lists (`itemTags`, `stepTags`) are cleaner to reason about, impossible
-  to confuse at the call site, and map directly to the two filter dropdowns in the UI.
-- **ChecklistManager: resources at step level, not item level** — resources reflect the cost of
-  *executing* a step, not the existence of an item. A step that can be run multiple times multiplies
-  its resource cost by the execution count. Item-level costs have no natural multiplier.
-- **ChecklistManager: open-ended step execution** — no `counterTarget`. The first tap marks a step
-  done; subsequent taps add executions (batches) that multiply resource costs. "Done" is always
-  `current >= 1`, regardless of batch count. This removes a configuration burden (no target to set)
-  while supporting the repeated-execution pattern naturally.
-- **ChecklistManager: pinned section mirrors, not moves** — TrophyHunter moves pinned items to the
-  top and removes them from their natural position. ChecklistManager shows pinned items in both the
-  Pinned section and All Items. The full list remains intact so context is never lost.
-- **ChecklistManager: tally counts pinned items only** — the tally reflects active service commitment,
-  not theoretical library capacity. An unpinned item is not in play; including it in the tally would
-  make the numbers meaningless during active use.
-- **ChecklistManager: `_expandedItems` as UI-only Set** — collapse/expand state is transient and
-  device-local by nature. Persisting it to Supabase would add write overhead for a preference that
-  resets naturally (pinned items re-expand on focus mode entry). Injecting it via session overlay
-  keeps render.js unaware of the distinction between persisted and ephemeral state.
+- **ChecklistManager: every leaf is a counter** — a plain item is a leaf with target 1, so one stored shape
+  (`target`/`value`) covers checkboxes and counters, and turning an item into a counter is just editing its target.
+  Parents store nothing and derive their state from children, which makes "parent ticked, child not" impossible.
+- **ChecklistManager: parent counts are direct children only** — each level reports on itself, which is predictable.
+  "Friendships 0/3" over many leaves is deliberate: no friendship is complete. Counting leaves would be ambiguous once
+  counters are involved.
+- **ChecklistManager: subtitle, not notes** — a single optional `desc` line after an em-dash. Em-dash is the separator
+  because hyphens appear in real names ("Cage-Fighting"). The counter suffix is parsed from the end of the line first,
+  so a subtitle can contain digits ("above 90%") without being misread.
+- **ChecklistManager: paste appends, never merges** — names repeat legitimately across a tree ("Darts" under many
+  friends), so name-based merging would be unsafe. Importing always appends at the top level.
+- **ChecklistManager: legacy conversion lives in `main.js`, not `migrations.js`** — `migrations.js` versions the
+  index/blob wrapper shared by all tools; this change is to one tool's blob contents. Conversion is lazy, per project,
+  on first render.
+- **ChecklistManager: expand state stored as overrides, per device** — depth-based defaults (root open, deeper
+  closed) plus collapse-cascades-to-descendants make "re-expand shows one level" free, and storing only non-default
+  overrides keeps the map small. It lives in its own `localStorage` key rather than the synced blob so toggling a branch
+  never writes to Supabase or triggers collision detection.
+- **ChecklistManager: no auto-collapse on completion, no collapse-all button** — auto-collapse hides ticks the instant
+  they are made, and collapsing a root already collapses everything beneath it.
+- **ChecklistManager: titles wrap, indentation shrinks on narrow screens** — a truncated title is unreadable; at 360px
+  each nesting level cost about 31px. A media query tightens indentation and row padding and drops the container's own
+  side padding.
 - **PTSD as a separate tool, not a TrophyHunter mode** — read-only profile summary vs interactive trophy tracking are fundamentally different use cases. Separate tools share visual language (`.th-*` primitives, same CSS variables) without coupling code.
 - **Single blob per user, no index or LRU cache** — PTSD is a single-profile-per-user tool. The multi-game index and LRU blob cache exist to handle large personal libraries with O(1) game selection. PTSD has no game selector; one Supabase row covers everything.
 - **`_savedAt` stripped before Supabase upsert** — it is a local-only field used to compare against `updated_at` when deciding whether to pull the remote blob on load. Storing it in Supabase would be noise with no benefit.

@@ -10,12 +10,13 @@ to sign in. See [Account & Sync](#account--sync) below.
 
 ## Tools at a Glance
 
-| Tool                   | What it does                                                                                                                     |
-|------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| **Checklist Manager**  | Manage resettable checklists with resource tracking, tag-based filtering, and pinned-item focus mode.                            |
-| **Level Goal Tracker** | Set a target level with a deadline. Tracks daily required XP and shows whether you're ahead or behind pace.                      || **Thing Counter**      | Track anything countable, organised into a tree of named groups by game. Supports bounded and open-ended counters, decrement mode, and configurable step sizes. |
-| **Trophy Hunter**      | Track PlayStation trophy progress across your games. Search for any PS3, PS4, PS5, or PS Vita title and mark trophies as earned. |
-| **XP Tracker**         | Log XP gains and track your rate over a session. Includes charts with moving averages and rate estimates.                        |
+| Tool                   | What it does                                                                                                                                                    |
+|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Checklist Manager**  | Hierarchical checklists with counters. Nest items, give them targets and subtitles, paste whole outlines.                                                       |
+| **Level Goal Tracker** | Set a target level with a deadline. Tracks daily required XP and shows whether you're ahead or behind pace.                                                     |
+| **Thing Counter**      | Track anything countable, organised into a tree of named groups by game. Supports bounded and open-ended counters, decrement mode, and configurable step sizes. |
+| **Trophy Hunter**      | Track PlayStation trophy progress across your games. Search for any PS3, PS4, PS5, or PS Vita title and mark trophies as earned.                                |
+| **XP Tracker**         | Log XP gains and track your rate over a session. Includes charts with moving averages and rate estimates.                                                       |
 
 ---
 
@@ -66,103 +67,71 @@ clean stats.
 
 ## Checklist Manager
 
-Checklist Manager is a tool for running structured, repeatable procedures. You define the structure once —
-items, steps, tags, resources — and the session state (which steps are done, how many executions) resets
-between runs without touching the definitions.
+Checklist Manager is a hierarchical checklist. Items nest to any depth, each item is either a plain checkbox or a
+counter with a target, and a parent ticks itself when everything inside it is done. A project is one checklist — a game,
+a run, a guide.
 
-### Setting Up a Project
+### Getting Started
 
 1. Open Checklist Manager from the main tools page.
-2. Click **+ Project** to create a project.
-3. In the project settings modal, add any resources your checklist tracks (name, emoji, total slots).
-4. Add item tags (used to filter whole items) and step tags (used to filter steps within items).
-5. Click **Save**.
+2. Click **+ Project**, name it, and save.
+3. Type an item into the add field and press **Enter**. Keep typing to add more.
 
-### Adding Items and Steps
+An empty project focuses the add field for you.
 
-1. With a project selected, click **+ Item**.
-2. Give the item a name and assign any item tags.
-3. Add steps using **+ Step**. For each step:
-    - Enter a title and optional description (ingredients, notes, instructions, anything useful).
-    - Assign step tags.
-    - Enter resource costs if this step consumes any resources.
-4. Click **Save**.
+### Entering Items
 
-Steps are ordered — they render in the order you define them. Use the ▲▼ arrows in the step editor
-to reorder.
+| You type        | You get                                      |
+|-----------------|----------------------------------------------|
+| `Eggs`          | A plain checkbox.                            |
+| `Eggs x3`       | A counter with a target of 3.                |
+| `Pool — Win`    | A checkbox titled "Pool" with subtitle "Win". |
+| `Pool — Win x3` | A counter with a subtitle.                   |
 
-### Running a Session
+The subtitle goes after an em-dash (—; on most phone keyboards, long-press the hyphen). The counter suffix always goes
+last. The subtitle is shown on its own line in a smaller font.
 
-- Tap the **+** button on a step to mark it done.
-- Tap **+** again on a completed step to log another execution (e.g. a second batch). A **×N** count
-  appears below the button when N > 1. Additional executions multiply the step's resource cost.
-- Completed steps dim. An item shows **✔** when all currently visible steps are done.
-- Tap an item's name to open the **Briefing** — a read-only summary of all step details, useful for
-  reviewing a procedure before starting.
+**Paste outline (📋):** paste one item per line and indent to nest, using tabs or spaces. The same `—` and `x3` syntax
+works, and markdown bullets (`- Eggs`) and task boxes (`- [ ] Eggs`, `- [x] Eggs`) are accepted. Pasted items are added
+to the end of the project's top level. Pasting the same text twice gives you two copies — nothing is merged.
 
-### Filters
+### Ticking Things Off
 
-```
-Filters: [Item ▾]  [Step ▾]
-View:    [📌] [✏️] [≡]  [↺ Reset]
-```
+- **Plain items:** tap the checkbox, or tap the item's name.
+- **Counters:** use **−** and **+**. Tapping the checkbox fills the counter to its target; tapping it again clears it.
+- **Parents:** a parent's checkbox ticks or unticks everything inside it. It shows `done/total` of its direct children
+  and ticks itself when all of them are ticked. Tapping a parent's name expands or collapses it.
+- **↺ on a parent** unticks everything inside that branch.
+- **↺ Reset** in the toolbar unticks the whole project. Tap once to arm, tap again within 4 seconds to confirm.
 
-| Control | What it does                                                                              |
-|---------|-------------------------------------------------------------------------------------------|
-| Item ▾  | Filter by item tag — only items carrying the selected tag are shown.                      |
-| Step ▾  | Filter by step tag — only matching steps are shown; items with no matches are hidden.     |
-| 📌      | Focus mode — hides All Items, shows only Pinned items. Pinned items expand automatically. |
-| ✏️      | Reorder mode (manual sort only) — shows ▲▼ arrows on each item.                           |
-| ≡       | Cycle sort order: manual → A→Z → Z→A → manual.                                            |
-| ↺ Reset | Reset all step state. Tap once to arm, tap again within 4 seconds to confirm.             |
+### Expanding and Collapsing
 
-Multiple filters can be active at once. Active filters appear as dismissible pills below the filter bar.
-Tap the **Aa / 😀** toggle on the pills row to switch between tag name and emoji display.
+The top level starts expanded and everything deeper starts collapsed. Collapsing a branch also collapses everything
+inside it, so re-expanding it shows just one level. This is the quick way to bring a deep tree back under control.
 
-### Pinning
+Your expanded/collapsed state is remembered on each device. It is not synced across devices. Adding an item under a
+collapsed branch opens it.
 
-Long-press any item to pin or unpin it. Pinned items appear in a **📌 Pinned** section at the top
-and remain visible in All Items as well.
+### Edit Mode
 
-The Pinned section has its own **↺ Pinned** reset that affects only pinned items.
+Tap **✏️** in the toolbar. Each row gets controls:
 
-Tap **📌** in the View bar to enter focus mode — the All Items section disappears, leaving only your
-pinned items expanded and ready to work through.
+| Control | What it does                                                           |
+|---------|------------------------------------------------------------------------|
+| ▲ ▼     | Move the item up or down among its siblings.                           |
+| ✎      | Edit the name, the target (leaves only), and the subtitle.             |
+| +       | Add a sub-item under this item. A plain item becomes a parent.         |
+| 🗑      | Delete the item. Items with children need a second tap on **Delete?**. |
 
-### Resource Tracking
+The add field at the bottom of the list is always available in edit mode.
 
-The **Inventory** tally appears below the filter bar whenever at least one item is pinned. It shows
-committed resource slots across all pinned items:
+### Project Settings
 
-```
-Inventory (pinned)
-🔧 Slots    3 / 8   [████░░░░░░]
-📦 Bays     5 / 5   [██████████]  ← orange when over capacity
-```
+The **✎** button next to the project dropdown renames or deletes the project.
 
-Each step tap commits that step's resource cost. Tapping again (second execution) commits the cost
-again. The tally updates live.
-
-Over-capacity resources turn orange — a planning signal, not a hard block.
-
-### Briefing Modal
-
-Tap any item's name to open the briefing. Toggle between:
-
-- **All Steps** — complete reference view regardless of active filters
-- **Filtered** — only steps matching the current step-tag filter
-
-The toggle preference is global and remembered across opens.
-
-### Resetting
-
-| Scope        | How                                                    | Confirm required |
-|--------------|--------------------------------------------------------|------------------|
-| Single step  | ↺ button on the item (resets all of that item's steps) | No               |
-| Pinned items | ↺ Pinned in the Pinned section header                  | Yes (2 taps)     |
-| All items    | ↺ Reset in the View bar, or ↺ All in All Items         | Yes (2 taps)     |
-
-Resetting clears step execution counts. Item definitions, pins, and active filters are untouched.
+> **Upgrading:** projects created with the earlier item/step version are converted the first time you open them. Items
+> become nodes and steps become children, with executed steps ticked. Descriptions, tags, resources, and batch counts are
+> dropped.
 
 ---
 
@@ -263,7 +232,7 @@ Toggle **✏️** in the toolbar to enter Edit Mode. All nodes show their contro
 | Control         | What it does                                                          |
 |-----------------|-----------------------------------------------------------------------|
 | + (on a branch) | Add a child branch inside this branch.                                |
-| ✎               | Edit the name, type, settings, or parent of this node.                |
+| ✎              | Edit the name, type, settings, or parent of this node.                |
 | ×1              | Reset the step size back to 1 (counters only).                        |
 | ↺               | Reset the value to its initial value (counters only).                 |
 | 🗑              | Delete the node. Deleting a branch also deletes everything inside it. |
@@ -306,7 +275,7 @@ buttons, and a reset to zero. It gets a random color each time it's opened fresh
 | Action                                          | Effect on Quick Counter                                                           |
 |-------------------------------------------------|-----------------------------------------------------------------------------------|
 | Page refresh or blur (e.g. alt-tab, phone call) | State preserved — value, step, and color all restored on reopen.                  |
-| Closing with ✕                                  | State wiped. Next open starts fresh with a new random color.                      |
+| Closing with ✕                                 | State wiped. Next open starts fresh with a new random color.                      |
 | Selecting a game                                | State wiped and modal closed. Intentional navigation ends the scratchpad session. |
 
 ---
@@ -334,8 +303,8 @@ Results show the game's title, platform badge, and a status indicator:
 
 | Indicator | Meaning                                            |
 |-----------|----------------------------------------------------|
-| ✓         | Data is already cached — instant add.              |
-| ⬇         | Will download trophy data from PlayStation on add. |
+| ✓        | Data is already cached — instant add.              |
+| ⬇        | Will download trophy data from PlayStation on add. |
 | 🔖        | Already in your list — clicking selects it.        |
 
 ### Game Not Found
@@ -574,6 +543,7 @@ Local Storage).
 | `bgt:xp-tracker:start`                  | XP Tracker         | Session start timestamp.                        |
 | `bgt:clm:v2`                            | Checklist Manager  | `{ version, index, blobs, lruOrder }`           |
 | `bgt:clm:selected-project`              | Checklist Manager  | Last selected project UUID.                     |
+| `bgt:clm:tree-state`                    | Checklist Manager  | Per-device expand/collapse state.               |
 | `bgt:level-goal-tracker:data`           | Level Goal Tracker | All games, goals, and daily history.            |
 | `bgt:level-goal-tracker:selected-game`  | Level Goal Tracker | Last selected game ID.                          |
 | `bgt:thing-counter:data`                | Thing Counter      | All games and their counter trees.              |

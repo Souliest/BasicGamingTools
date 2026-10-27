@@ -25,8 +25,9 @@ These projects prioritize clarity and practicality over complexity.
 
 ### ChecklistManager
 
-Manage resettable checklists with independent item and step filtering, resource tracking across
-pinned items, and session state that resets without touching the underlying structure.
+Hierarchical checklists with counters. Items nest to any depth, can carry a short subtitle, and are either plain
+checkboxes or counters with a target; parents tick themselves when everything inside is done. Bulk-create a whole
+tree by pasting an indented outline.
 
 ### XpTracker
 
@@ -132,9 +133,10 @@ BasicGamingTools/
 │   ├── js/
 │   │   ├── main.js
 │   │   ├── storage.js
+│   │   ├── nodes.js
 │   │   ├── render.js
 │   │   ├── modal-project.js
-│   │   ├── modal-item.js
+│   │   ├── modal-import.js
 │   │   └── modal.js
 │   └── README.md
 │

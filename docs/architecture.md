@@ -462,10 +462,12 @@ worker side. Spoofing it has no security consequence.
 ### ChecklistManager
 
 - Hybrid storage with debounced Supabase sync — see `docs/storage.md`. Tick changes and structural edits both write to
-  localStorage immediately and schedule a Supabase write 2 seconds after the last change (`_scheduleSync`); the debounce is
+  localStorage immediately and schedule a Supabase write 2 seconds after the last change (`_scheduleSync`); the debounce
+  is
   flushed on project switch and when the tab is hidden.
 - Project blob shape: `{ id, name, nodes, last_modified }`. A leaf is `{ id, name, desc?, target, value }` and is ticked
-  iff `value >= target` (target 1 renders as a plain checkbox). A parent is `{ id, name, desc?, children }` and stores no
+  iff `value >= target` (target 1 renders as a plain checkbox). A parent is `{ id, name, desc?, children }` and stores
+  no
   tick state: it is ticked iff every child is ticked, and shows `done/total` of its direct children.
 - `nodes.js` is a pure leaf: tree lookup and mutation, tick derivation, `parseLine`/`parseOutline`, the legacy
   conversion, and the expand-state helpers (`isExpanded`, `setExpanded`).
@@ -485,8 +487,8 @@ worker side. Spoofing it has no security consequence.
 - Remote Realtime updates for the open project are ignored while a local debounce is pending or an inline edit is open.
 - `modal-project.js` handles create/rename/delete; `modal-import.js` handles the paste-outline modal; `modal.js` is a
   barrel re-exporting both.
-- Destructive actions are armed with a second tap and disarm after 4 seconds: Reset all, and Delete on a node that has
-  children. Deleting a leaf is immediate.
+- Destructive actions are armed with a second tap and disarm after 4 seconds: Reset all, ↺ on a parent, and Delete on a
+  node that has children. Deleting a leaf is immediate.
 
 ### TrophyHunter
 
@@ -657,11 +659,11 @@ See `TrophySummary/README.md` for user-facing documentation.
   gesture; wired once at `initHeader` time.
 - **Fullscreen SVG icons with `<polyline>` strokes** — Unicode fullscreen glyphs render
   inconsistently across Android fonts; inline SVG guarantees identical appearance everywhere.
-- **`docs/` folder for architecture docs** — keeps root clean; READMEs stay adjacent to their tools
-  (user-facing), architecture docs live together (developer-facing).
+- **`docs/` folder for architecture docs** — keeps root clean; READMEs stay adjacent to their tools (user-facing),
+  architecture docs live together (developer-facing).
 - **Split into `architecture.md`, `storage.md`, `trophy-hunter.md`** — storage is a large
-  self-contained topic shared across three tools; TrophyHunter has substantial infrastructure
-  (Worker, PlayStation, render quirks) that would crowd the shared conventions doc.
+  self-contained topic shared across three tools; TrophyHunter has substantial infrastructure (Worker, PlayStation,
+  render quirks) that would crowd the shared conventions doc.
 - **`openModal`/`closeModal` focus-trap in `common/utils.js`** — `inert` on background content is
   the correct accessible approach (prevents Tab, pointer, and assistive-technology interaction with
   background elements simultaneously). A CSS-only approach cannot trap AT focus. The auth and
@@ -695,12 +697,16 @@ See `TrophySummary/README.md` for user-facing documentation.
   remote ID set on every `loadData()` catches missed events at no extra query cost — the lightweight
   select that already runs for the selector provides the remote ID set.
 - **Stale-delete cleanup in `loadData()` (LGT, TC)** — Realtime handles live deletes...
-- **ChecklistManager: every leaf is a counter** — a plain item is a leaf with target 1, so one stored shape
-  (`target`/`value`) covers checkboxes and counters, and turning an item into a counter is just editing its target.
+- **ChecklistManager: every leaf is a counter** — a plain item is a leaf with target 1, so one stored shape (`target`/
+  `value`) covers checkboxes and counters, and turning an item into a counter is just editing its target.
   Parents store nothing and derive their state from children, which makes "parent ticked, child not" impossible.
+- **ChecklistManager: only leaves are tickable** — a parent's box was originally a one-tap "tick or untick everything
+  inside" control, placed a few millimetres from the expand arrow. A mis-tap wiped a whole branch with no undo. The
+  parent's indicator is now a read-only circle; branch-level reset is the separate ↺ button, armed with a second tap
+  like Reset all.
 - **ChecklistManager: parent counts are direct children only** — each level reports on itself, which is predictable.
-  "Friendships 0/3" over many leaves is deliberate: no friendship is complete. Counting leaves would be ambiguous once
-  counters are involved.
+  "Friendships 0/3" over many leaves is deliberate: no friendship is complete. Counting leaves would be ambiguous
+  once counters are involved.
 - **ChecklistManager: subtitle, not notes** — a single optional `desc` line after an em-dash. Em-dash is the separator
   because hyphens appear in real names ("Cage-Fighting"). The counter suffix is parsed from the end of the line first,
   so a subtitle can contain digits ("above 90%") without being misread.
@@ -718,16 +724,43 @@ See `TrophySummary/README.md` for user-facing documentation.
 - **ChecklistManager: titles wrap, indentation shrinks on narrow screens** — a truncated title is unreadable; at 360px
   each nesting level cost about 31px. A media query tightens indentation and row padding and drops the container's own
   side padding.
-- **PTSD as a separate tool, not a TrophyHunter mode** — read-only profile summary vs interactive trophy tracking are fundamentally different use cases. Separate tools share visual language (`.th-*` primitives, same CSS variables) without coupling code.
-- **Single blob per user, no index or LRU cache** — PTSD is a single-profile-per-user tool. The multi-game index and LRU blob cache exist to handle large personal libraries with O(1) game selection. PTSD has no game selector; one Supabase row covers everything.
-- **`_savedAt` stripped before Supabase upsert** — it is a local-only field used to compare against `updated_at` when deciding whether to pull the remote blob on load. Storing it in Supabase would be noise with no benefit.
-- **Realtime ping model for PTSD** — PTSD's profile blob can reach 200KB+ for large libraries and grows proportionally with library size. Carrying the full blob through Supabase Realtime works at typical sizes but approaches and exceeds the 1MB Realtime payload limit for the top end of the user base (estimated 2–3MB for the largest libraries). The ping model — Realtime carries only `updated_at`, receiving device fetches the full blob from Supabase directly — keeps the Realtime payload bounded at ~100 bytes regardless of library size, at the cost of one extra round trip per sync event. For a read-only summary tool where sync is a convenience, this is the correct tradeoff. See `docs/storage.md`.
-- **Rate limits in a separate localStorage key** — rate limits are per-device by nature (each device tracks its own countdown independently). Keeping them in a dedicated key (`bgt:trophy-summary:rate-limits`) separate from the profile blob means they survive profile reloads and Realtime overwrites without requiring special handling.
-- **`onUsernameChangeAttempt` callback (atomic username change)** — the original `onUsernameChange` callback closed the modal and saved immediately, leaving the profile in an inconsistent state if the worker then rate-limited the subsequent refresh (name updated, data unchanged). The atomic approach — fetch first, save only on success, modal stays open on failure — eliminates the inconsistent state entirely. The same callback handles both first-run and username-change flows.
-- **Missing game prompt one-at-a-time with "do for all"** — games hidden on PlayStation often disappear in batches (a user hides 40 titles at once). A per-game confirm loop would require 40 modal interactions. The "do for all" checkbox handles the common batch case in one tap while still surfacing individual decisions for the uncommon case. Keep is the default because hidden-on-PlayStation is the far more common reason a game goes missing.
-- **`groups` lazily populated on first expand** — group data requires a separate `/summary?full=true` worker call per game. Fetching it eagerly for all games on global refresh would add hundreds of worker calls for large libraries. Lazy fetch on first expand means the cost is paid only for games the user actually inspects.
-- **Expand state session-only** — group expansion is trivial to re-trigger and most sessions don't need any group open. Persisting it would add write overhead and Realtime sync complexity for a preference that resets naturally.
-- **`Math.floor` for all percentages** — matches PlayStation's display convention. A game with one unearned trophy never shows 100% until the last one is earned.
-- **`levelProgress` is the only profile-level percentage** — `overallPct` does not exist in the PlayStation API and was not implemented. `levelProgress` (Sony-calculated, 0–100) is the only percentage on the profile card.
-- **Profile-level `tierEarned` aggregated from `trophyTitles`** — the PlayStation `profile2` endpoint returns `level` and `progress` in `trophySummary` but not `earnedTrophies`. The worker computes lifetime tier counts by summing `earnedTrophies` across all `trophyTitles` entries. No extra API call required.
-- **`psUsername` not `psnUsername`** — Sony has rebranded. All new code uses `psUsername`, `PS`, or `PlayStation`. The Sony API scope value (`psn:mobile.v2.core`) is unchanged — it is a Sony internal identifier, not user-facing copy.
+- **PTSD as a separate tool, not a TrophyHunter mode** — read-only profile summary vs interactive trophy tracking are
+  fundamentally different use cases. Separate tools share visual language (`.th-*` primitives, same CSS variables)
+  without coupling code.
+- **Single blob per user, no index or LRU cache** — PTSD is a single-profile-per-user tool. The multi-game index and LRU
+  blob cache exist to handle large personal libraries with O (1) game selection. PTSD has no game selector; one Supabase
+  row covers everything.
+- **`_savedAt` stripped before Supabase upsert** — it is a local-only field used to compare against `updated_at` when
+  deciding whether to pull the remote blob on load. Storing it in Supabase would be noise with no benefit.
+- **Realtime ping model for PTSD** — PTSD's profile blob can reach 200KB+ for large libraries and grows proportionally
+  with library size. Carrying the full blob through Supabase Realtime works at typical sizes but approaches and exceeds
+  the 1MB Realtime payload limit for the top end of the user base (estimated 2–3MB for the largest libraries). The ping
+  model — Realtime carries only `updated_at`, receiving device fetches the full blob from Supabase directly — keeps the
+  Realtime payload bounded at ~100 bytes regardless of library size, at the cost of one extra round trip per sync event.
+  For a read-only summary tool where sync is a convenience, this is the correct tradeoff. See `docs/storage.md`.
+- **Rate limits in a separate localStorage key** — rate limits are per-device by nature (each device tracks its own
+  countdown independently). Keeping them in a dedicated key (`bgt:trophy-summary:rate-limits`) separate from the profile
+  blob means they survive profile reloads and Realtime overwrites without requiring special handling.
+- **`onUsernameChangeAttempt` callback (atomic username change)** — the original `onUsernameChange` callback closed the
+  modal and saved immediately, leaving the profile in an inconsistent state if the worker then rate-limited the
+  subsequent refresh (name updated, data unchanged). The atomic approach — fetch first, save only on success, modal
+  stays open on failure — eliminates the inconsistent state entirely. The same callback handles both first-run and
+  username-change flows.
+- **Missing game prompt one-at-a-time with "do for all"** — games hidden on PlayStation often disappear in batches (a
+  user hides 40 titles at once). A per-game confirm loop would require 40 modal interactions. The "do for all" checkbox
+  handles the common batch case in one tap while still surfacing individual decisions for the uncommon case. Keep is the
+  default because hidden-on-PlayStation is the far more common reason a game goes missing.
+- **`groups` lazily populated on first expand** — group data requires a separate `/summary?full=true` worker call per
+  game. Fetching it eagerly for all games on global refresh would add hundreds of worker calls for large libraries. Lazy
+  fetch on first expand means the cost is paid only for games the user actually inspects.
+- **Expand state session-only** — group expansion is trivial to re-trigger and most sessions don't need any group open.
+  Persisting it would add write overhead and Realtime sync complexity for a preference that resets naturally.
+- **`Math.floor` for all percentages** — matches PlayStation's display convention. A game with one unearned trophy never
+  shows 100% until the last one is earned.
+- **`levelProgress` is the only profile-level percentage** — `overallPct` does not exist in the PlayStation API and was
+  not implemented. `levelProgress` (Sony-calculated, 0–100) is the only percentage on the profile card.
+- **Profile-level `tierEarned` aggregated from `trophyTitles`** — the PlayStation `profile2` endpoint returns `level`
+  and `progress` in `trophySummary` but not `earnedTrophies`. The worker computes lifetime tier counts by summing
+  `earnedTrophies` across all `trophyTitles` entries. No extra API call required.
+- **`psUsername` not `psnUsername`** — Sony has rebranded. All new code uses `psUsername`, `PS`, or `PlayStation`. The
+  Sony API scope value (`psn:mobile.v2.core`) is unchanged — it is a Sony internal identifier, not user-facing copy.

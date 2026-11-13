@@ -99,9 +99,10 @@ to the end of the project's top level. Pasting the same text twice gives you two
 
 - **Plain items:** tap the checkbox, or tap the item's name.
 - **Counters:** use **−** and **+**. Tapping the checkbox fills the counter to its target; tapping it again clears it.
-- **Parents:** a parent's checkbox ticks or unticks everything inside it. It shows `done/total` of its direct children
-  and ticks itself when all of them are ticked. Tapping a parent's name expands or collapses it.
-- **↺ on a parent** unticks everything inside that branch.
+- **Parents:** a parent's round indicator is read-only. It shows `done/total` of its direct children and fills in
+  when all of them are ticked. Only leaves are ticked directly. Tapping a parent's name expands or collapses it.
+- **↺ on a parent** unticks everything inside that branch. Tap once to arm (it turns into **↺ Sure?**), tap again
+  within 4 seconds to confirm.
 - **↺ Reset** in the toolbar unticks the whole project. Tap once to arm, tap again within 4 seconds to confirm.
 
 ### Expanding and Collapsing

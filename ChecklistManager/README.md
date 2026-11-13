@@ -29,7 +29,8 @@ tools.
 reaches the target. A target of 1 renders as a plain checkbox; a higher target renders as `− 2/5 +`.
 
 **Parent** — an item with children. It stores no tick state of its own: it is ticked when every child is ticked, and
-shows `done/total` of its **direct** children. A parent's checkbox ticks or unticks everything inside it.
+shows `done/total` of its **direct** children. A parent's round indicator is read-only: only leaves are ticked
+directly, which makes it impossible to wipe a branch with one stray tap.
 
 **Subtitle** — an optional single line shown under an item's title in a smaller font.
 
@@ -65,7 +66,7 @@ appended to the end of the project's top level. Pasting the same text twice crea
 - Edit mode: reorder (▲▼), rename and re-target (✎), add sub-items (+), delete (🗑)
 - Expand/collapse with depth-based defaults: top level expanded, everything deeper collapsed; collapsing a branch
   collapses everything inside it. Expand state is remembered per device
-- Reset a branch (↺ on the parent) or the whole project (two taps)
+- Reset a branch (↺ on the parent) or the whole project; both take two taps to confirm
 - Local storage persistence (works offline)
 - Optional cross-device sync via Supabase when signed in
 - Collision detection: if local and cloud data diverge, a prompt lets you choose which to keep

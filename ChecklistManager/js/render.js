@@ -2,7 +2,7 @@
 // HTML builders for the checklist tree, toolbar, and selector helpers.
 // Receives data and UI state as parameters — no loadData() calls inside this module.
 //
-// ui: { editMode, overrides:{[nodeId]:boolean}, editingId, addingUnder, armedDeleteId, resetArmed }
+// ui: { editMode, overrides:{[nodeId]:boolean}, editingId, addingUnder, armedDeleteId, armedResetId, resetArmed }
 
 import {escHtml} from '../../common/utils.js';
 import {isLeaf, isDone, isExpanded, childCounts, targetOf, currentOf} from './nodes.js';
@@ -218,17 +218,24 @@ function _renderRow(node, ui, cb, pos, expanded) {
                         aria-label="Delete ${name}">${armed ? 'Delete?' : '🗑'}</button>
             </div>`;
     } else if (!leaf) {
+        const resetArmed = ui.armedResetId === node.id;
         controlsHtml = `
-            <button class="clm-node-btn" data-action="reset"
-                    aria-label="Reset ${name}" title="Untick everything inside">↺</button>`;
+            <button class="clm-node-btn${resetArmed ? ' armed' : ''}" data-action="reset"
+                    aria-label="Reset ${name}" title="Untick everything inside">${resetArmed ? '↺ Sure?' : '↺'}</button>`;
     }
+
+    // Only leaves are tickable. A parent's box is a read-only indicator, so a stray tap
+    // near the expand arrow can never wipe a whole branch.
+    const checkHtml = leaf
+        ? `<button class="clm-check${done ? ' clm-check-on' : ''}" data-action="tick"
+                role="checkbox" aria-checked="${done}"
+                aria-label="${name}">${done ? '✔' : ''}</button>`
+        : `<span class="clm-check clm-check-static${done ? ' clm-check-on' : ''}"
+                role="img" aria-label="${done ? 'Complete' : 'Incomplete'}">${done ? '✔' : ''}</span>`;
 
     row.innerHTML = `
         <span class="clm-toggle-slot">${toggleHtml}</span>
-        <button class="clm-check${done ? ' clm-check-on' : ''}" data-action="tick"
-                role="checkbox" aria-checked="${done}"
-                aria-label="${name}">${done ? '✔' : ''}</button>
-                <div class="clm-text" data-action="name">
+        ${checkHtml}                <div class="clm-text" data-action="name">
             <span class="clm-name">${name}</span>
             ${node.desc ? `<span class="clm-desc">${escHtml(node.desc)}</span>` : ''}
         </div>

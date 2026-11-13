@@ -46,6 +46,7 @@ const _ui = {
     editingId: null,
     addingUnder: null,
     armedDeleteId: null,
+    armedResetId: null,
     resetArmed: false,
 };
 
@@ -104,6 +105,7 @@ function _resetUiState() {
     _ui.editingId = null;
     _ui.addingUnder = null;
     _ui.armedDeleteId = null;
+    _ui.armedResetId = null;
     _ui.resetArmed = false;
 }
 
@@ -128,6 +130,7 @@ function _mutate(fn) {
     if (!project || !Array.isArray(project.nodes)) return;
 
     _ui.armedDeleteId = null;
+    _ui.armedResetId = null;
     _ui.resetArmed = false;
 
     fn(project);
@@ -263,7 +266,7 @@ function _restoreSelectedProject(index) {
 function onToggleNode(id) {
     _mutate(p => {
         const n = findNode(p.nodes, id);
-        if (n) setDone(n, !isDone(n));
+        if (n && isLeaf(n)) setDone(n, !isDone(n));
     });
 }
 
@@ -274,7 +277,21 @@ function onCounterStep(id, dir) {
     });
 }
 
+// Two taps: first arms, second resets the branch. Disarms after 4 seconds.
 function onResetNode(id) {
+    if (_ui.armedResetId !== id) {
+        _ui.armedResetId = id;
+        _ui.armedDeleteId = null;
+        _ui.resetArmed = false;
+        setTimeout(() => {
+            if (_ui.armedResetId === id) {
+                _ui.armedResetId = null;
+                _render(_localLoad());
+            }
+        }, 4000);
+        _render(_localLoad());
+        return;
+    }
     _mutate(p => {
         const n = findNode(p.nodes, id);
         if (n) setDone(n, false);
@@ -395,6 +412,7 @@ function onToggleEditMode() {
     _ui.editingId = null;
     _ui.addingUnder = null;
     _ui.armedDeleteId = null;
+    _ui.armedResetId = null;
     _ui.resetArmed = false;
     _render(_localLoad());
 }

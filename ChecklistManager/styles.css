@@ -445,6 +445,20 @@ select#projectSelect:focus {
   color: #000;
 }
 
+/* Parent boxes are read-only status indicators, not buttons. */
+.clm-check-static {
+  border-radius: 50%;
+  cursor: default;
+}
+
+.clm-check-static:hover {
+  border-color: var(--border);
+}
+
+.clm-check-static.clm-check-on:hover {
+  border-color: var(--accent3);
+}
+
 /* ── Name + subtitle ── */
 .clm-text {
   flex: 1 1 140px;
@@ -600,6 +614,12 @@ select#projectSelect:focus {
 .clm-node-btn.armed {
   background: rgba(255, 68, 68, 0.15);
   font-size: 0.78rem;
+}
+
+.clm-node-btn.armed:not(.red) {
+  background: rgba(255, 107, 53, 0.12);
+  border-color: var(--accent2);
+  color: var(--accent2);
 }
 
 .clm-edit-controls {
